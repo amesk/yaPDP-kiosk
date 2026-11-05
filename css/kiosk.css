@@ -1,0 +1,44 @@
+:root {
+  color-scheme: dark;
+  font-family: "Segoe UI", Arial, sans-serif;
+  background: #080b10;
+  color: #fff;
+  --accent: #f0b84b;
+  --accent-hot: #ffdf83;
+}
+* { box-sizing: border-box; }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+body { background: #080b10; }
+button { font: inherit; }
+.kiosk { position: relative; width: 100%; height: 100%; min-height: 100svh; overflow: hidden; isolation: isolate; background: #080b10; }
+.stage, .fallback, .media, .shade { position: absolute; inset: 0; width: 100%; height: 100%; }
+.stage { overflow: hidden; background: radial-gradient(ellipse at 70% 30%, #344454 0, #111b27 38%, #080b10 78%); }
+.fallback { background:
+  radial-gradient(ellipse at 70% 34%, rgba(83,118,143,.44), transparent 42%),
+  linear-gradient(135deg, #182b3a, #080b10 68%); }
+.media { object-fit: cover; opacity: 0; transition: opacity var(--transition, 900ms) ease; }
+.media.visible { opacity: 1; }
+.shade { pointer-events: none; background: linear-gradient(90deg, rgba(4,8,13,.78), rgba(4,8,13,.2) 65%, rgba(4,8,13,.25)), linear-gradient(0deg, rgba(3,6,10,.75), transparent 28%, rgba(3,6,10,.12)); }
+.branding { position: absolute; z-index: 2; top: clamp(32px, 7vh, 90px); left: clamp(28px, 7vw, 120px); max-width: min(68vw, 1000px); text-shadow: 0 2px 24px #000; }
+.eyebrow { color: var(--accent-hot); font-size: clamp(12px, 1.1vw, 18px); font-weight: 700; letter-spacing: .24em; margin-bottom: 18px; }
+h1 { margin: 0; font-size: clamp(46px, 8vw, 120px); line-height: .98; font-weight: 750; letter-spacing: -.045em; }
+.branding p { margin: 22px 0 0; color: rgba(255,255,255,.84); font-size: clamp(18px, 2vw, 30px); line-height: 1.35; }
+.invitation { position: absolute; z-index: 3; left: 50%; bottom: clamp(105px, 17vh, 190px); transform: translateX(-50%); width: min(90vw, 720px); text-align: center; }
+.launch { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 24px; min-width: min(80vw, 540px); min-height: 92px; padding: 22px 38px; border: 2px solid rgba(255,239,193,.95); border-radius: 16px; color: #17120a; background: linear-gradient(180deg, #ffe49b, #e8a92f); box-shadow: 0 0 0 7px rgba(245,187,77,.13), 0 0 35px 8px rgba(255,190,65,.44), 0 18px 55px rgba(0,0,0,.45); font-size: clamp(22px, 2.6vw, 36px); font-weight: 800; cursor: pointer; animation: pulse 2.2s ease-in-out infinite; transition: transform .18s ease, filter .18s ease; }
+.launch:hover, .launch:focus-visible { transform: translateY(-3px) scale(1.025); filter: brightness(1.08); outline: 4px solid #fff; outline-offset: 7px; }
+.launch:active { transform: translateY(1px) scale(.99); }
+.launch-arrow { font-size: 1.3em; line-height: .7; }
+.hint { margin: 20px 0 0; font-size: clamp(14px, 1.25vw, 19px); color: rgba(255,255,255,.85); text-shadow: 0 2px 12px #000; letter-spacing: .04em; }
+@keyframes pulse { 0%,100% { box-shadow: 0 0 0 7px rgba(245,187,77,.13), 0 0 30px 5px rgba(255,190,65,.34), 0 18px 55px rgba(0,0,0,.45); } 50% { box-shadow: 0 0 0 13px rgba(245,187,77,.08), 0 0 58px 15px rgba(255,190,65,.62), 0 18px 55px rgba(0,0,0,.45); } }
+.caption { position: absolute; z-index: 2; right: clamp(24px, 5vw, 80px); bottom: 28px; max-width: 45vw; color: rgba(255,255,255,.76); font-size: clamp(12px, 1vw, 16px); text-align: right; text-shadow: 0 2px 10px #000; }
+.footer { position: absolute; z-index: 2; left: clamp(28px, 7vw, 120px); right: clamp(28px, 7vw, 120px); bottom: 30px; display: flex; align-items: center; gap: 28px; color: rgba(255,255,255,.6); font-size: clamp(11px, .9vw, 14px); letter-spacing: .08em; text-transform: uppercase; }
+.progress { height: 2px; flex: 1; background: rgba(255,255,255,.2); overflow: hidden; }
+.progress span { display: block; width: 0; height: 100%; background: var(--accent); }
+@media (max-width: 700px) {
+  .branding { max-width: 86vw; }
+  .invitation { bottom: 17vh; }
+  .launch { min-height: 76px; gap: 12px; padding: 18px 22px; }
+  .footer { bottom: 18px; }
+  .caption { bottom: 58px; max-width: 80vw; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
