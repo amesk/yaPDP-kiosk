@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080b10">
+  <meta name="description" content="A configurable full-screen museum kiosk.">
+  <title>Museum kiosk</title>
+  <link rel="stylesheet" href="css/kiosk.css">
+  <script src="config.js"></script>
+  <script defer src="js/app.js"></script>
+</head>
+<body>
+  <main class="kiosk" aria-label="Museum presentation">
+    <div class="stage" id="stage" aria-live="off">
+      <div class="fallback" id="fallback"></div>
+      <img class="media media-image" id="image" alt="" hidden>
+      <video class="media media-video" id="video" playsinline muted loop hidden></video>
+      <div class="shade"></div>
+      <div class="caption" id="caption" aria-live="polite"></div>
+    </div>
+
+    <header class="branding">
+      <div class="eyebrow" id="eyebrow">INTERACTIVE EXHIBIT</div>
+      <h1 id="title">Welcome</h1>
+      <p id="subtitle">Discover the exhibit</p>
+    </header>
+
+    <section class="invitation" aria-label="Start the exhibit">
+      <button class="launch" id="launch" type="button">
+        <span id="buttonText">Press me to launch!</span>
+        <span class="launch-arrow" aria-hidden="true">→</span>
+      </button>
+      <p class="hint" id="hint">Touch the button to begin</p>
+    </section>
+
+    <footer class="footer">
+      <span id="footerText">Please enjoy the exhibition</span>
+      <span class="progress" aria-hidden="true"><span id="progress"></span></span>
+    </footer>
+  </main>
+</body>
+</html>
