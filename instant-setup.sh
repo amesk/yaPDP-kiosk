@@ -61,8 +61,8 @@ if ! command -v git >/dev/null 2>&1; then
   DEBIAN_FRONTEND=noninteractive apt-get install -y git ca-certificates
 fi
 
-TMP_DIR="$(mktemp -d)"
-cleanup() { rm -rf "$TMP_DIR"; }
+STAGE_DIR="$(mktemp -d /opt/.yapdp-exhibit.XXXXXX)"
+cleanup() { rm -rf "$STAGE_DIR"; }
 trap cleanup EXIT
 
 fetch_pinned_repo() {
@@ -75,14 +75,21 @@ fetch_pinned_repo() {
   git -C "$destination" checkout --quiet --detach FETCH_HEAD
 }
 
-mkdir -p "$INSTALL_ROOT"
-fetch_pinned_repo "$KIOSK_REPO" "$KIOSK_REF" "$INSTALL_ROOT/yaPDP-kiosk"
-fetch_pinned_repo "$YAPDP_REPO" "$YAPDP_REF" "$INSTALL_ROOT/yaPDP"
+fetch_pinned_repo "$KIOSK_REPO" "$KIOSK_REF" "$STAGE_DIR/yaPDP-kiosk"
+fetch_pinned_repo "$YAPDP_REPO" "$YAPDP_REF" "$STAGE_DIR/yaPDP"
 
 # Keep the installed tree root-owned; the kiosk user only needs read access.
-chown -R root:root "$INSTALL_ROOT"
-find "$INSTALL_ROOT" -type d -exec chmod 0755 {} +
-find "$INSTALL_ROOT" -type f -exec chmod a+r {} +
+chown -R root:root "$STAGE_DIR"
+find "$STAGE_DIR" -type d -exec chmod 0755 {} +
+find "$STAGE_DIR" -type f -exec chmod a+r {} +
+
+# Publish the complete tree only after both pinned checkouts succeeded.
+if [[ -e "$INSTALL_ROOT" ]]; then
+  echo "$INSTALL_ROOT appeared during setup; refusing to overwrite it." >&2
+  exit 1
+fi
+mv "$STAGE_DIR" "$INSTALL_ROOT"
+trap - EXIT
 
 echo "Repositories installed at $INSTALL_ROOT."
 echo "Starting the Ubuntu 24.04 kiosk installer..."
