@@ -1,69 +1,94 @@
 # yaPDP-kiosk
 
-A standalone, configurable full-screen presentation shell for museum and exhibition computers.
+A standalone presentation shell for museum and exhibition computers. It displays a configurable slideshow and a prominent launch button, then navigates the same browser window to the exhibit.
 
-It runs in Chrome Kiosk Mode, rotates through local images and videos, and displays a prominent **Press me to launch!** button. Touching the button navigates the same browser window to the configured exhibit URL.
+The deployment target is **Ubuntu 24.04 with nginx and Google Chrome**. The kiosk shell remains independent of yaPDP; nginx serves both projects from the local filesystem.
 
-The kiosk shell is deliberately independent of yaPDP and can be reused for other exhibits.
+## Deployment layout
 
-## Quick start (Windows)
+Place the two repositories side by side:
 
-1. Install Google Chrome.
-2. Put images and videos in `media/`.
-3. Edit `config.js`: set `launchUrl` and the `media` playlist.
-4. Double-click `start-kiosk.bat`.
+```text
+/opt/yapdp-exhibit/
+├── yaPDP-kiosk/
+│   ├── index.html
+│   ├── config.js
+│   ├── start-kiosk.sh
+│   └── ...
+└── yaPDP/
+    ├── pdp11.html
+    ├── src/
+    ├── css/
+    ├── assets/
+    ├── media/
+    └── states/
+```
 
-The batch file launches Chrome with `--kiosk` and a dedicated browser profile in `chrome-profile/`. Press `Alt+F4` to exit. Chrome Kiosk Mode hides browser controls; it is not a security boundary. For a public installation, also configure Windows Assigned Access or an equivalent locked-down account.
+Use a normal yaPDP checkout/release. No FS Bundle, generated resource archive, Node.js runtime, or changes to yaPDP are required for this deployment.
+
+## Install
+
+1. Install Google Chrome on Ubuntu 24.04.
+2. Place the yaPDP and yaPDP-kiosk directories in the layout above.
+3. Run the installer:
+
+   ```bash
+   cd /opt/yapdp-exhibit/yaPDP-kiosk
+   sudo ./install/ubuntu-24.04.sh
+   ```
+
+The installer installs nginx if necessary, configures a site listening **only on 127.0.0.1:8080**, enables nginx, and creates a desktop-session autostart entry for Chrome kiosk mode.
+
+It does not configure desktop auto-login, lock down the desktop session, install Chrome, or modify power-management settings. Configure those OS-level policies for the dedicated kiosk account as part of preparing the exhibit computer.
+
+After installation, the local pages are:
+
+- Kiosk presentation: http://127.0.0.1:8080/
+- yaPDP: http://127.0.0.1:8080/yapdp/pdp11.html
+
+The installer can be run again after changing the paths or nginx configuration. It validates the nginx configuration before reloading the service.
 
 ## Configuration
 
-Edit `config.js`:
+Edit `config.js` to change the presentation text, launch URL, slideshow timing, and media playlist.
+
+The default launch URL starts yaPDP with a three-minute idle timeout and returns to the kiosk page:
 
 ```js
-window.KIOSK_CONFIG = {
-  title: "yaPDP",
-  eyebrow: "INTERACTIVE EXHIBIT",
-  subtitle: "Explore the world of PDP-11",
-  footerText: "Please enjoy the exhibition",
-  buttonText: "Press me to launch!",
-  buttonHint: "Touch the button to begin",
-  launchUrl: "https://amesk.github.io/yaPDP/",
-  slideInterval: 10000,
-  videoDefaultDuration: 20000,
-  transitionDuration: 900,
-  media: [
-    { src: "media/intro.jpg", type: "image", duration: 10000, caption: "The exhibition" },
-    { src: "media/demo.mp4", type: "video", duration: 20000, caption: "PDP-11 in action" }
-  ]
-};
+launchUrl: "/yapdp/pdp11.html?idle-timeout=180&idle-redirect=/"
 ```
 
-Durations are in milliseconds. The `type` field is optional: `.mp4`, `.webm` and `.ogv` files are detected as video automatically. Videos are muted and loop until their configured duration expires. With an empty playlist, the page shows its background and launch button.
+Change the timeout as needed. The corresponding idle-timeout/redirect support must be present in the yaPDP version being deployed.
+
+Put slideshow images and videos in `media/` and list them in the `media` array. See [media/README.md](media/README.md).
+
+## Start and test manually
+
+From a graphical desktop session:
+
+```bash
+./start-kiosk.sh
+```
+
+Or test the server without starting Chrome:
+
+```bash
+curl -I http://127.0.0.1:8080/
+curl -I http://127.0.0.1:8080/yapdp/pdp11.html
+```
+
+## Operational notes
+
+- nginx binds to loopback only; the exhibit is not exposed to the museum LAN by this site.
+- Both pages use the same origin, so normal browser navigation works without `file://` restrictions.
+- yaPDP resources are served directly from the regular repository tree. Adding states, disk images, or other supported resources does not require rebuilding a bundle.
+- Returning to the kiosk page after inactivity is navigation, not a factory reset. Define and test a separate visitor-session reset policy if each visitor must receive a pristine emulator state.
+- Chrome kiosk mode is not a security boundary. Use a dedicated restricted desktop account and configure automatic login and recovery at the OS level.
+- The Windows launcher is intentionally not maintained; Ubuntu 24.04 is the supported deployment target.
 
 ## GitHub Pages
 
-This is a static site. Enable GitHub Pages in repository settings using the `main` branch and `/ (root)` to host it online.
-
-## Media tips
-
-- Prefer 16:9 images at or above the display's native resolution.
-- Use H.264 MP4 for broad browser compatibility.
-- Keep files reasonably sized to reduce initial loading time.
-- Test playback on the actual kiosk computer.
-
-See [media/README.md](media/README.md) for playlist examples.
-
-## Project layout
-
-```text
-index.html
-config.js
-css/kiosk.css
-js/app.js
-media/
-start-kiosk.bat
-README.md
-```
+The repository can also be hosted as a static presentation page using GitHub Pages (main branch, repository root). The local nginx installer is only for the Ubuntu exhibit deployment.
 
 ## License
 
