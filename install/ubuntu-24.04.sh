@@ -32,8 +32,18 @@ if [[ ! -f "$YAPDP_DIR/pdp11.html" ]]; then
   exit 1
 fi
 
+if [[ ! -r /etc/os-release ]]; then
+  echo "Cannot identify the operating system." >&2
+  exit 1
+fi
+. /etc/os-release
+if [[ "${ID:-}" != "ubuntu" || "${VERSION_ID:-}" != "24.04" ]]; then
+  echo "This installer supports Ubuntu 24.04 only." >&2
+  exit 1
+fi
+
 if ! command -v apt-get >/dev/null 2>&1; then
-  echo "This installer supports Ubuntu 24.04 (apt-get) only." >&2
+  echo "apt-get was not found." >&2
   exit 1
 fi
 
@@ -99,7 +109,7 @@ cat > "$AUTOSTART" <<DESKTOP
 Type=Application
 Name=yaPDP Museum Kiosk
 Comment=Start yaPDP in full-screen kiosk mode
-Exec=$KIOSK_DIR/start-kiosk.sh
+Exec=/bin/bash $KIOSK_DIR/start-kiosk.sh
 Terminal=false
 X-GNOME-Autostart-enabled=true
 DESKTOP
