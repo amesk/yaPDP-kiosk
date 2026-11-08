@@ -2,11 +2,43 @@
 
 A standalone presentation shell for museum and exhibition computers. It displays a configurable slideshow and a prominent launch button, then navigates the same browser window to the exhibit.
 
-The deployment target is **Ubuntu 24.04 with nginx and Google Chrome**. The kiosk shell remains independent of yaPDP; nginx serves both projects from the local filesystem.
+The deployment target is **Ubuntu 24.04 Desktop with GNOME/GDM, nginx, and Google Chrome or Chromium**. The kiosk shell remains independent of yaPDP; nginx serves both projects from the local filesystem.
+
+## Quick install on a prepared Ubuntu 24.04 Desktop
+
+Install Google Chrome or Chromium first, then download and inspect the bootstrap script:
+
+```bash
+curl -fsSLo instant-setup.sh \
+  https://raw.githubusercontent.com/amesk/yaPDP-kiosk/main/instant-setup.sh
+less instant-setup.sh
+sudo bash ./instant-setup.sh
+```
+
+The script is designed for a **fresh Ubuntu 24.04 Desktop installation**. It refuses to overwrite an existing `/opt/yapdp-exhibit` directory and pins exact commits of both repositories. It does not install the operating system, partition disks, install the browser, or configure firmware/BIOS settings.
+
+The bootstrap:
+1. Checks Ubuntu 24.04 Desktop, GDM, and the presence of Chrome/Chromium.
+2. Installs Git if needed.
+3. Checks out the pinned yaPDP and yaPDP-kiosk revisions under `/opt/yapdp-exhibit/`.
+4. Runs the kiosk installer.
+
+Do not pipe a remote script directly into a root shell. Download it, inspect it, and then run it with sudo.
+
+## What the installer configures
+
+- Creates a dedicated unprivileged `yapdp-kiosk` account (override with `KIOSK_USER=name`).
+- Refuses to use a kiosk account that belongs to the `sudo` group.
+- Enables GDM automatic login for that account.
+- Adds a per-user desktop-session autostart entry for the kiosk browser.
+- Installs/configures nginx on **127.0.0.1:8080** only.
+- Keeps application files root-owned and readable by the kiosk account.
+
+The kiosk account is not an administrator. Keep a separate administrator account for maintenance. Automatic login is a physical-access convenience, not a security boundary: anyone with access to the machine can use the active kiosk session. Do not store secrets in the kiosk account.
+
+The installer edits the `[daemon]` section of `/etc/gdm3/custom.conf` to set GDM automatic login. Review this setting if the machine already has a customized display-manager policy. The change takes effect after reboot.
 
 ## Deployment layout
-
-Place the two repositories side by side:
 
 ```text
 /opt/yapdp-exhibit/
@@ -26,27 +58,16 @@ Place the two repositories side by side:
 
 Use a normal yaPDP checkout/release. No FS Bundle, generated resource archive, Node.js runtime, or changes to yaPDP are required for this deployment.
 
-## Install
+## Manual install / reconfiguration
 
-1. Install Google Chrome on Ubuntu 24.04.
-2. Place the yaPDP and yaPDP-kiosk directories in the layout above.
-3. Run the installer:
+If both repositories are already placed side by side in the layout above, run:
 
-   ```bash
-   cd /opt/yapdp-exhibit/yaPDP-kiosk
-   sudo bash ./install/ubuntu-24.04.sh
-   ```
+```bash
+cd /opt/yapdp-exhibit/yaPDP-kiosk
+sudo bash ./install/ubuntu-24.04.sh
+```
 
-The installer installs nginx if necessary, configures a site listening **only on 127.0.0.1:8080**, enables nginx, and creates a desktop-session autostart entry for Chrome kiosk mode.
-
-It does not configure desktop auto-login, lock down the desktop session, install Chrome, or modify power-management settings. Configure those OS-level policies for the dedicated kiosk account as part of preparing the exhibit computer.
-
-After installation, the local pages are:
-
-- Kiosk presentation: http://127.0.0.1:8080/
-- yaPDP: http://127.0.0.1:8080/yapdp/pdp11.html
-
-The installer can be run again after changing the paths or nginx configuration. It validates the nginx configuration before reloading the service.
+The installer can be run again to reconfigure nginx and GDM. It does not overwrite the repository tree. The first-run bootstrap, by contrast, deliberately refuses to overwrite an existing installation.
 
 ## Configuration
 
@@ -64,10 +85,10 @@ Put slideshow images and videos in `media/` and list them in the `media` array. 
 
 ## Start and test manually
 
-From a graphical desktop session:
+From the kiosk desktop session:
 
 ```bash
-bash ./start-kiosk.sh
+bash /opt/yapdp-exhibit/yaPDP-kiosk/start-kiosk.sh
 ```
 
 Or test the server without starting Chrome:
@@ -83,7 +104,7 @@ curl -I http://127.0.0.1:8080/yapdp/pdp11.html
 - Both pages use the same origin, so normal browser navigation works without `file://` restrictions.
 - yaPDP resources are served directly from the regular repository tree. Adding states, disk images, or other supported resources does not require rebuilding a bundle.
 - Returning to the kiosk page after inactivity is navigation, not a factory reset. Define and test a separate visitor-session reset policy if each visitor must receive a pristine emulator state.
-- Chrome kiosk mode is not a security boundary. Use a dedicated restricted desktop account and configure automatic login and recovery at the OS level.
+- Chrome kiosk mode is not a security boundary. The dedicated account is unprivileged, but automatic login means physical access to the computer grants access to its active session.
 - The Windows launcher is intentionally not maintained; Ubuntu 24.04 is the supported deployment target.
 
 ## GitHub Pages
