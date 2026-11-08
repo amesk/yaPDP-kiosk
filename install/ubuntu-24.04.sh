@@ -1,13 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Install the local nginx site and desktop autostart entry.
+# Install the local nginx site, dedicated kiosk account, GDM auto-login,
+# and per-user desktop autostart entry.
 # Expected layout:
 #   /opt/yapdp-exhibit/yaPDP-kiosk/
 #   /opt/yapdp-exhibit/yaPDP/
 
 if [[ "$EUID" -ne 0 ]]; then
   echo "Run with sudo: sudo $0" >&2
+  exit 1
+fi
+
+KIOSK_USER="${KIOSK_USER:-yapdp-kiosk}"
+if [[ ! "$KIOSK_USER" =~ ^[a-z_][a-z0-9_-]*[$]?$ ]]; then
+  echo "Invalid kiosk username: $KIOSK_USER" >&2
   exit 1
 fi
 
@@ -47,15 +54,47 @@ if ! command -v apt-get >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! dpkg-query -W -f='${Status}' gdm3 2>/dev/null | grep -q "install ok installed"; then
+  echo "GNOME Display Manager (gdm3) is required for automatic login." >&2
+  echo "Use Ubuntu 24.04 Desktop, or install/configure gdm3 first." >&2
+  exit 1
+fi
+
 if ! command -v nginx >/dev/null 2>&1; then
   apt-get update
   DEBIAN_FRONTEND=noninteractive apt-get install -y nginx
 fi
 
+# Create a dedicated, unprivileged account. A newly created account has no
+# usable password; GDM's automatic-login PAM service starts its desktop session.
+if ! id "$KIOSK_USER" >/dev/null 2>&1; then
+  useradd --create-home --user-group --shell /bin/bash \
+    --comment "yaPDP Museum Kiosk" "$KIOSK_USER"
+fi
+
+if id -nG "$KIOSK_USER" | tr ' ' '\n' | grep -qx 'sudo'; then
+  echo "The account $KIOSK_USER belongs to the sudo group; refusing to use it as a kiosk account." >&2
+  echo "Remove it from sudo or choose another KIOSK_USER." >&2
+  exit 1
+fi
+
+USER_HOME="$(getent passwd "$KIOSK_USER" | cut -d: -f6)"
+if [[ -z "$USER_HOME" || ! -d "$USER_HOME" ]]; then
+  echo "Cannot find a valid home directory for $KIOSK_USER." >&2
+  exit 1
+fi
+
 NGINX_AVAILABLE="/etc/nginx/sites-available/yapdp-kiosk"
 NGINX_ENABLED="/etc/nginx/sites-enabled/yapdp-kiosk"
-AUTOSTART="/etc/xdg/autostart/yapdp-kiosk.desktop"
+GDM_CONFIG="/etc/gdm3/custom.conf"
+OLD_AUTOSTART="/etc/xdg/autostart/yapdp-kiosk.desktop"
+USER_AUTOSTART="$USER_HOME/.config/autostart/yapdp-kiosk.desktop"
 BACKUP=""
+
+if [[ ! -f "$GDM_CONFIG" ]]; then
+  echo "Expected GDM configuration was not found: $GDM_CONFIG" >&2
+  exit 1
+fi
 
 if [[ -e "$NGINX_AVAILABLE" ]]; then
   BACKUP="$(mktemp)"
@@ -103,8 +142,10 @@ if ! nginx -t; then
   exit 1
 fi
 
-install -d -m 0755 /etc/xdg/autostart
-cat > "$AUTOSTART" <<DESKTOP
+# Keep the launcher scoped to the kiosk account, not every desktop user.
+rm -f "$OLD_AUTOSTART"
+install -d -o "$KIOSK_USER" -g "$KIOSK_USER" -m 0750 "$USER_HOME/.config/autostart"
+cat > "$USER_AUTOSTART" <<DESKTOP
 [Desktop Entry]
 Type=Application
 Name=yaPDP Museum Kiosk
@@ -113,15 +154,75 @@ Exec=/bin/bash $KIOSK_DIR/start-kiosk.sh
 Terminal=false
 X-GNOME-Autostart-enabled=true
 DESKTOP
-chmod 0644 "$AUTOSTART"
+chown "$KIOSK_USER:$KIOSK_USER" "$USER_AUTOSTART"
+chmod 0644 "$USER_AUTOSTART"
+
+# Set only the GDM daemon options we own; preserve unrelated local settings.
+python3 - "$GDM_CONFIG" "$KIOSK_USER" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+path = Path(sys.argv[1])
+username = sys.argv[2]
+lines = path.read_text().splitlines()
+section_start = None
+section_end = len(lines)
+
+for index, line in enumerate(lines):
+    if re.match(r"^\s*\[daemon\]\s*(?:#.*)?$", line, re.I):
+        section_start = index
+        for end in range(index + 1, len(lines)):
+            if re.match(r"^\s*\[[^]]+\]", lines[end]):
+                section_end = end
+                break
+        break
+
+if section_start is None:
+    if lines and lines[-1].strip():
+        lines.append("")
+    lines.append("[daemon]")
+    section_start = len(lines) - 1
+    section_end = len(lines)
+
+settings = {
+    "AutomaticLoginEnable": "True",
+    "AutomaticLogin": username,
+    "TimedLoginEnable": "False",
+}
+seen = set()
+updated = []
+for index, line in enumerate(lines):
+    if section_start < index < section_end:
+        match = re.match(r"^\s*#?\s*(AutomaticLoginEnable|AutomaticLogin|TimedLoginEnable)\s*=", line)
+        if match:
+            key = match.group(1)
+            if key not in seen:
+                updated.append(f"{key} = {settings[key]}")
+                seen.add(key)
+            continue
+    updated.append(line)
+
+# Insert missing settings immediately before the next section (or at EOF).
+insert_at = section_end
+# Account for lines removed/replaced in the daemon section.
+insert_at = next(
+    (i for i, line in enumerate(updated) if i > section_start and re.match(r"^\s*\[[^]]+\]", line)),
+    len(updated),
+)
+missing = [f"{key} = {value}" for key, value in settings.items() if key not in seen]
+updated[insert_at:insert_at] = missing
+path.write_text("\n".join(updated) + "\n")
+PY
 
 systemctl enable --now nginx
 systemctl reload nginx
 
 echo
 echo "yaPDP kiosk nginx site installed."
+echo "Kiosk account: $KIOSK_USER"
+echo "GDM automatic login enabled for that account (effective after reboot)."
 echo "Kiosk URL: http://127.0.0.1:8080/"
 echo "yaPDP URL: http://127.0.0.1:8080/yapdp/pdp11.html"
-echo "Desktop autostart installed for graphical user sessions."
-echo "Configure desktop auto-login for the dedicated kiosk account separately."
 echo "Install Google Chrome if it is not already available."
+echo "The kiosk account is not an administrator; use a separate admin account for maintenance."
