@@ -10,7 +10,7 @@ window.KIOSK_CONFIG = {
   footerText: "Please enjoy the exhibition",
   buttonText: "Press me to launch!",
   buttonHint: "Touch the button to begin",
-  launchUrl: "https://amesk.github.io/yaPDP/",
+  launchUrl: "/yapdp/pdp11.html?idle-timeout=180&idle-redirect=/",
   slideInterval: 10000,
   videoDefaultDuration: 20000,
   transitionDuration: 900,
