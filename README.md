@@ -34,7 +34,7 @@ Use a normal yaPDP checkout/release. No FS Bundle, generated resource archive, N
 
    ```bash
    cd /opt/yapdp-exhibit/yaPDP-kiosk
-   sudo ./install/ubuntu-24.04.sh
+   sudo bash ./install/ubuntu-24.04.sh
    ```
 
 The installer installs nginx if necessary, configures a site listening **only on 127.0.0.1:8080**, enables nginx, and creates a desktop-session autostart entry for Chrome kiosk mode.
@@ -67,7 +67,7 @@ Put slideshow images and videos in `media/` and list them in the `media` array. 
 From a graphical desktop session:
 
 ```bash
-./start-kiosk.sh
+bash ./start-kiosk.sh
 ```
 
 Or test the server without starting Chrome:
