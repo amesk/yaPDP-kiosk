@@ -47,12 +47,43 @@ if ! dpkg-query -W -f='${Status}' gdm3 2>/dev/null | grep -q "install ok install
   exit 1
 fi
 
+# Prefer the official Google Chrome Stable build for a predictable exhibit
+# runtime. If it is absent, install Google's signed Debian package. Chromium
+# may already be present, but is not silently substituted for Chrome.
 if ! command -v google-chrome-stable >/dev/null 2>&1 \
-   && ! command -v google-chrome >/dev/null 2>&1 \
-   && ! command -v chromium >/dev/null 2>&1 \
-   && ! command -v chromium-browser >/dev/null 2>&1; then
-  echo "Install Google Chrome or Chromium before running this bootstrap." >&2
-  echo "The browser is intentionally not downloaded or installed by this script." >&2
+   && ! command -v google-chrome >/dev/null 2>&1; then
+  ARCH="$(dpkg --print-architecture)"
+  if [[ "$ARCH" != "amd64" ]]; then
+    echo "Google Chrome Stable is supported here on amd64 only (detected: $ARCH)." >&2
+    echo "Install a supported Chrome build manually before continuing." >&2
+    exit 1
+  fi
+
+  echo "Google Chrome Stable is not installed; installing the official Google .deb package."
+  apt-get update
+  DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl
+
+  CHROME_DEB="$STAGE_DIR/google-chrome-stable_current_amd64.deb"
+  curl --fail --location --silent --show-error \
+    --retry 3 --retry-delay 2 \
+    --output "$CHROME_DEB" \
+    "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb"
+
+  if [[ "$(dpkg-deb -f "$CHROME_DEB" Package 2>/dev/null || true)" != "google-chrome-stable" ]]; then
+    echo "Downloaded file is not the expected google-chrome-stable Debian package." >&2
+    exit 1
+  fi
+
+  DEBIAN_FRONTEND=noninteractive apt-get install -y "$CHROME_DEB"
+fi
+
+CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || true)"
+if [[ -z "$CHROME_BIN" ]]; then
+  echo "Google Chrome installation did not provide the expected executable." >&2
+  exit 1
+fi
+if ! "$CHROME_BIN" --version; then
+  echo "Google Chrome is installed but failed its version check." >&2
   exit 1
 fi
 
