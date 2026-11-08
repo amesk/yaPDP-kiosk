@@ -6,7 +6,7 @@ The deployment target is **Ubuntu 24.04 Desktop with GNOME/GDM, nginx, and Googl
 
 ## Quick install on a prepared Ubuntu 24.04 Desktop
 
-Install Google Chrome or Chromium first, then download and inspect the bootstrap script:
+Download and inspect the bootstrap script. It installs the official Google Chrome Stable package when Chrome is absent:
 
 ```bash
 curl -fsSLo instant-setup.sh \
@@ -15,13 +15,14 @@ less instant-setup.sh
 sudo bash ./instant-setup.sh
 ```
 
-The script is designed for a **fresh Ubuntu 24.04 Desktop installation**. It refuses to overwrite an existing `/opt/yapdp-exhibit` directory and pins exact commits of both repositories. It does not install the operating system, partition disks, install the browser, or configure firmware/BIOS settings.
+The script is designed for a **fresh Ubuntu 24.04 Desktop installation**. It refuses to overwrite an existing `/opt/yapdp-exhibit` directory and pins exact commits of both repositories. It does not install the operating system, partition disks, or configure firmware/BIOS settings. The bootstrap installs Chrome Stable from Google's official download endpoint when needed; this requires internet access and an amd64 machine.
 
 The bootstrap:
-1. Checks Ubuntu 24.04 Desktop, GDM, and the presence of Chrome/Chromium.
-2. Installs Git if needed.
-3. Checks out the pinned yaPDP and yaPDP-kiosk revisions under `/opt/yapdp-exhibit/`.
-4. Runs the kiosk installer.
+1. Checks Ubuntu 24.04 Desktop and GDM.
+2. Installs the official Google Chrome Stable `.deb` from Google if Chrome is not already installed, then verifies the executable and version. On amd64 only.
+3. Installs Git if needed.
+4. Checks out the pinned yaPDP and yaPDP-kiosk revisions under `/opt/yapdp-exhibit/`.
+5. Runs the kiosk installer.
 
 Do not pipe a remote script directly into a root shell. Download it, inspect it, and then run it with sudo.
 
