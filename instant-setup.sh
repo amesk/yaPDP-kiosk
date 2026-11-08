@@ -47,6 +47,10 @@ if ! dpkg-query -W -f='${Status}' gdm3 2>/dev/null | grep -q "install ok install
   exit 1
 fi
 
+STAGE_DIR="$(mktemp -d /opt/.yapdp-exhibit.XXXXXX)"
+cleanup() { rm -rf "$STAGE_DIR"; }
+trap cleanup EXIT
+
 # Prefer the official Google Chrome Stable build for a predictable exhibit
 # runtime. If it is absent, install Google's signed Debian package. Chromium
 # may already be present, but is not silently substituted for Chrome.
@@ -91,10 +95,6 @@ if ! command -v git >/dev/null 2>&1; then
   apt-get update
   DEBIAN_FRONTEND=noninteractive apt-get install -y git ca-certificates
 fi
-
-STAGE_DIR="$(mktemp -d /opt/.yapdp-exhibit.XXXXXX)"
-cleanup() { rm -rf "$STAGE_DIR"; }
-trap cleanup EXIT
 
 fetch_pinned_repo() {
   local url="$1"
