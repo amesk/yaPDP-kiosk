@@ -224,5 +224,8 @@ echo "Kiosk account: $KIOSK_USER"
 echo "GDM automatic login enabled for that account (effective after reboot)."
 echo "Kiosk URL: http://127.0.0.1:8080/"
 echo "yaPDP URL: http://127.0.0.1:8080/yapdp/pdp11.html"
-echo "Install Google Chrome if it is not already available."
+if ! command -v google-chrome-stable >/dev/null 2>&1 &&
+   ! command -v google-chrome >/dev/null 2>&1; then
+  echo "Google Chrome is not installed. Run instant-setup.sh to install it."
+fi
 echo "The kiosk account is not an administrator; use a separate admin account for maintenance."
