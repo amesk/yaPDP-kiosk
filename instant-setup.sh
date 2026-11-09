@@ -51,6 +51,31 @@ show_phase() {
   } > /dev/tty 2>/dev/null || echo "[$percent%] $title"
 }
 
+
+run_with_spinner() {
+  local message="$1"
+  shift
+  local pid status frame=0
+  local spinner='|/-\\'
+
+  ("$@") &
+  pid=$!
+
+  while kill -0 "$pid" 2>/dev/null; do
+    printf '\\r  Working %s  %s' "${spinner:frame%4:1}" "$message" > /dev/tty 2>/dev/null || true
+    frame=$((frame + 1))
+    sleep 0.12
+  done
+
+  if wait "$pid"; then
+    status=0
+  else
+    status=$?
+  fi
+  printf '\\r\\033[K' > /dev/tty 2>/dev/null || true
+  return "$status"
+}
+
 trap 'status=$?; line=$LINENO; command=$BASH_COMMAND; echo "ERROR: exit $status at line $line: $command"; echo "Installation log: $LOG_FILE"; if [[ -r /dev/tty && -w /dev/tty ]] && command -v dialog >/dev/null 2>&1; then dialog --title "yaPDP Kiosk Setup — Error" --msgbox "Installation failed (exit code $status).\n\nDetailed log:\n$LOG_FILE" 10 78 </dev/tty >/dev/tty 2>&1 || true; else echo "Installation failed. Log: $LOG_FILE" >&2; fi' ERR
 
 if [[ ! -r /etc/os-release ]]; then
@@ -94,7 +119,7 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]] &&
     printf '  Detailed installation log:\n  %s\n' "$LOG_FILE"
   } > /dev/tty
 
-  if ! { apt-get -o DPkg::Lock::Timeout=300 update && DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y dialog; }; then
+  if ! run_with_spinner "Preparing the setup wizard" bash -c 'apt-get -o DPkg::Lock::Timeout=300 update && DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y dialog'; then
     {
       printf '\n  ERROR: Could not install the dialog interface.\n'
       printf '  The installer cannot continue interactively.\n\n'
@@ -221,11 +246,11 @@ if ! command -v google-chrome-stable >/dev/null 2>&1 \
   fi
 
   echo "Google Chrome Stable is not installed; installing the official Google .deb package."
-  apt-get -o DPkg::Lock::Timeout=300 update
-  DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y ca-certificates curl
+  run_with_spinner "Refreshing Ubuntu package lists" apt-get -o DPkg::Lock::Timeout=300 update
+  run_with_spinner "Installing download tools" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y ca-certificates curl
 
   CHROME_DEB="$STAGE_DIR/google-chrome-stable_current_amd64.deb"
-  curl --fail --location --silent --show-error \
+  run_with_spinner "Downloading Google Chrome Stable" curl --fail --location --silent --show-error \
     --retry 3 --retry-delay 2 \
     --output "$CHROME_DEB" \
     "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb"
@@ -235,7 +260,7 @@ if ! command -v google-chrome-stable >/dev/null 2>&1 \
     exit 1
   fi
 
-  DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y "$CHROME_DEB"
+  run_with_spinner "Installing Google Chrome Stable" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y "$CHROME_DEB"
 fi
 
 CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || true)"
@@ -251,8 +276,8 @@ fi
 show_phase 20 "Google Chrome is ready. Preparing repository download..."
 
 if ! command -v git >/dev/null 2>&1; then
-  apt-get -o DPkg::Lock::Timeout=300 update
-  DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y git ca-certificates
+  run_with_spinner "Refreshing Ubuntu package lists" apt-get -o DPkg::Lock::Timeout=300 update
+  run_with_spinner "Installing Git" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y git ca-certificates
 fi
 
 fetch_pinned_repo() {
@@ -261,7 +286,7 @@ fetch_pinned_repo() {
   local destination="$3"
   git init -q "$destination"
   git -C "$destination" remote add origin "$url"
-  git -C "$destination" fetch --quiet --depth 1 origin "$ref"
+  run_with_spinner "Fetching repository revision" git -C "$destination" fetch --quiet --depth 1 origin "$ref"
   git -C "$destination" checkout --quiet --detach FETCH_HEAD
 }
 
