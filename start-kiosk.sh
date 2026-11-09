@@ -23,6 +23,7 @@ exec "$BROWSER" \
   --kiosk \
   --no-first-run \
   --no-default-browser-check \
+  --password-store=basic \
   --disable-session-crashed-bubble \
   --disable-infobars \
   --user-data-dir="$PROFILE_DIR" \
