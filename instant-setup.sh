@@ -81,7 +81,7 @@ if ! dpkg-query -W -f='${Status}' gdm3 2>/dev/null | grep -q "install ok install
 fi
 
 show_welcome() {
-  [[ "\${NONINTERACTIVE:-0}" == "1" || ! -r /dev/tty ]] && return 0
+  [[ "${NONINTERACTIVE:-0}" == "1" || ! -r /dev/tty ]] && return 0
 
   clear > /dev/tty 2>/dev/null || true
   cat > /dev/tty <<EOF
