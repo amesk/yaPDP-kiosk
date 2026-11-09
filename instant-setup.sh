@@ -82,7 +82,7 @@ fi
 
 # The welcome screen and settings wizard both use dialog. Install it
 # before showing either screen; package-manager output remains in the log.
-if [[ "${NONINTERACTIVE:-0}" != "1" && -t 0 && -t 1 ]] &&
+if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]] &&
    ! command -v dialog >/dev/null 2>&1; then
   {
     printf '\n  yaPDP MUSEUM KIOSK SETUP\n\n'
@@ -104,7 +104,7 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -t 0 && -t 1 ]] &&
 fi
 
 show_welcome() {
-  [[ "${NONINTERACTIVE:-0}" == "1" || ! -r /dev/tty ]] && return 0
+  [[ "${NONINTERACTIVE:-0}" == "1" || ! -r /dev/tty || ! -w /dev/tty ]] && return 0
   dialog --title "yaPDP Museum Kiosk Setup" --no-collapse --msgbox \
     "This installer will prepare this Ubuntu 24.04 computer as a dedicated, full-screen museum exhibit.\n\nIt will configure:\n  • Google Chrome and the GNOME Kiosk session\n  • yaPDP and the kiosk presentation files\n  • A local web server and automatic kiosk login\n\nExisting files under /opt/yapdp-exhibit will not be overwritten.\n\nDetailed installation output is saved to:\n$LOG_FILE\n\nSelect OK to configure the installation, or Cancel to abort." \
     20 78 < /dev/tty
