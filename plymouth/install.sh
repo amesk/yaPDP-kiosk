@@ -5,6 +5,9 @@ THEME_NAME="yapdp-plymouth"
 THEME_DIR="/usr/share/plymouth/themes/$THEME_NAME"
 SOURCE_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 PLYMOUTH_LINK="/usr/share/plymouth/themes/default.plymouth"
+
+source "$SOURCE_DIR/../lib/installer-ui.sh"
+yapdp_log_init
 THEME_FILE="$THEME_DIR/$THEME_NAME.plymouth"
 STATE_FILE="/etc/default/yapdp-plymouth.previous"
 
@@ -21,8 +24,8 @@ fi
 
 if ! command -v rsvg-convert >/dev/null 2>&1; then
   echo "Installing SVG renderer (librsvg2-bin)..."
-  apt-get -o DPkg::Lock::Timeout=300 update
-  DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y librsvg2-bin
+  yapdp_run_with_spinner "Refreshing Ubuntu package lists" apt-get -o DPkg::Lock::Timeout=300 update
+  yapdp_run_with_spinner "Installing SVG renderer" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y librsvg2-bin
 fi
 
 mkdir -p "$THEME_DIR"
@@ -43,7 +46,7 @@ fi
 
 update-alternatives --install "$PLYMOUTH_LINK" default.plymouth "$THEME_FILE" 200
 update-alternatives --set default.plymouth "$THEME_FILE"
-update-initramfs -u
+yapdp_run_with_spinner "Rebuilding the boot image (initramfs)" update-initramfs -u
 
 echo "yaPDP Plymouth theme installed and selected."
 echo "Previous theme (for rollback): $(cat "$STATE_FILE" 2>/dev/null || echo 'not recorded')"
