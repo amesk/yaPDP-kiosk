@@ -297,6 +297,23 @@ rm -f "$OLD_AUTOSTART" "$USER_AUTOSTART"
 install -d -o "$KIOSK_USER" -g "$KIOSK_USER" -m 0750 "$USER_HOME/.config"
 install -d -o "$KIOSK_USER" -g "$KIOSK_USER" -m 0750 "$USER_HOME/.local"
 install -d -o "$KIOSK_USER" -g "$KIOSK_USER" -m 0750 "$USER_HOME/.local/bin"
+
+# GNOME Kiosk 46 reads its compositor background during session startup.
+# Configure the kiosk user's dconf database now, before GDM starts that session;
+# changing these settings from start-kiosk.sh would be too late.
+if ! runuser -u "$KIOSK_USER" -- env HOME="$USER_HOME" \
+    dbus-run-session -- sh -c '
+      set -eu
+      gsettings set org.gnome.desktop.background color-shading-type "solid"
+      gsettings set org.gnome.desktop.background primary-color "#000000"
+      gsettings set org.gnome.desktop.background secondary-color "#000000"
+      gsettings set org.gnome.desktop.background picture-uri ""
+      gsettings set org.gnome.desktop.background picture-uri-dark ""
+    '; then
+  echo "Could not configure the GNOME Kiosk background for $KIOSK_USER." >&2
+  exit 1
+fi
+
 printf 'yes\n' > "$USER_HOME/.config/gnome-initial-setup-done"
 chown "$KIOSK_USER:$KIOSK_USER" "$USER_HOME/.config/gnome-initial-setup-done"
 chmod 0644 "$USER_HOME/.config/gnome-initial-setup-done"
