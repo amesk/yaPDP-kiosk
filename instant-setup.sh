@@ -84,9 +84,23 @@ fi
 # before showing either screen; package-manager output remains in the log.
 if [[ "${NONINTERACTIVE:-0}" != "1" && -t 0 && -t 1 ]] &&
    ! command -v dialog >/dev/null 2>&1; then
-  show_phase 0 "Preparing the installation interface..."
-  apt-get update
-  DEBIAN_FRONTEND=noninteractive apt-get install -y dialog
+  {
+    printf '\n  yaPDP MUSEUM KIOSK SETUP\n\n'
+    printf '  The installer interface (dialog) is not installed.\n'
+    printf '  Preparing it now; this should only take a moment.\n\n'
+    printf '  Package-manager details are being saved to:\n  %s\n' "$LOG_FILE"
+  } > /dev/tty
+
+  if ! { apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dialog; }; then
+    {
+      printf '\n  ERROR: Could not install the dialog interface.\n'
+      printf '  The installer cannot continue interactively.\n\n'
+      printf '  Please inspect the log:\n  %s\n' "$LOG_FILE"
+      printf '\n  Press Enter to exit. '
+    } > /dev/tty
+    IFS= read -r _ < /dev/tty || true
+    exit 1
+  fi
 fi
 
 show_welcome() {
