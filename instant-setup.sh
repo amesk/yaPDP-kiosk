@@ -340,15 +340,15 @@ fetch_git_with_progress() {
        && command -v dialog >/dev/null 2>&1; then
       if GIT_TERMINAL_PROMPT=0 git -C "$repository" -c http.lowSpeedLimit=1024 -c http.lowSpeedTime=60 \
         fetch --progress --depth 1 origin "$ref" \
-        2> >(tee -a "$LOG_FILE" | awk 'BEGIN { RS = "[\\r\\n]+" } {
+        2> >(tee -a "$LOG_FILE" | awk 'BEGIN { RS = "[\r\n]+" } {
           if (match($0, /[0-9]+%/)) {
             value = substr($0, RSTART, RLENGTH)
             sub(/%/, "", value)
-            printf "%d\\n", value
+            printf "%d\n", value
             fflush()
           }
         }' | dialog --title "yaPDP Museum Kiosk Setup" \
-          --gauge "Fetching $label from GitHub...\\n\\nReceiving and indexing Git objects" \
+          --gauge "Fetching $label from GitHub...\n\nReceiving and indexing Git objects" \
           8 76 0 </dev/tty >/dev/tty 2>&1); then
         return 0
       else
