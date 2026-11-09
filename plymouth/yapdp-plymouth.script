@@ -53,8 +53,8 @@ activity_b.SetOpacity(0.0);
 
 # Progress bar sits in the lower instrument strip.
 bar_sprite = Sprite();
-bar_x = panel_x + 560 * scale;
-bar_y = panel_y + 326 * scale;
+bar_x = panel_x + 96 * scale;
+bar_y = panel_y + 315 * scale;
 bar_sprite.SetPosition(bar_x, bar_y, 12);
 bar_sprite.SetOpacity(0.95);
 
