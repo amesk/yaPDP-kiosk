@@ -28,7 +28,7 @@ fi
 # Keep the console clean; all command output is retained in a per-run log.
 LOG_DIR="/var/log/yapdp-kiosk"
 install -d -m 0750 "$LOG_DIR"
-LOG_FILE="$LOG_DIR/bootstrap-$(date +%Y%m%d-%H%M%S)-$.log"
+LOG_FILE="$LOG_DIR/bootstrap-$(date +%Y%m%d-%H%M%S-%N).log"
 export YAPDP_INSTALL_LOG="$LOG_FILE"
 exec > >(tee -a "$LOG_FILE" >/dev/null) 2>&1
 echo "===== yaPDP kiosk bootstrap started: $(date --iso-8601=seconds) ====="
