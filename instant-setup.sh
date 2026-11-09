@@ -156,7 +156,7 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -t 0 && -t 1 ]]; then
   clear || true
 fi
 
-if [[ "$INSTALL_PLYMOUTH" != "0" && "$INSTALL_PLYMOUTH" != "1" ]]; then
+show_phase 0 "Settings confirmed. Preparing the installation..."\n\nif [[ "$INSTALL_PLYMOUTH" != "0" && "$INSTALL_PLYMOUTH" != "1" ]]; then
   echo "INSTALL_PLYMOUTH must be 0 (disabled) or 1 (enabled)." >&2
   exit 1
 fi
