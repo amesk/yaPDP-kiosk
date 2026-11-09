@@ -87,8 +87,8 @@ download_chrome_with_progress() {
     curl --fail --location --show-error --progress-bar \
       --connect-timeout 30 --max-time 300 \
       --speed-time 45 --speed-limit 1024 \
-      --retry 5 --retry-all-errors --retry-delay 5 --retry-max-time 360 \
-      --output "$output" "$url" \
+      --retry 5 --retry-all-errors --retry-delay 5 --retry-max-time 900 \
+      --continue-at - --output "$output" "$url" \
       2> >(tee -a "$LOG_FILE" | awk 'BEGIN { RS = "\r" } {
         if (match($0, /[0-9]+([.][0-9]+)?%/)) {
           value = substr($0, RSTART, RLENGTH)
@@ -103,8 +103,8 @@ download_chrome_with_progress() {
     curl --fail --location --silent --show-error \
       --connect-timeout 30 --max-time 300 \
       --speed-time 45 --speed-limit 1024 \
-      --retry 5 --retry-all-errors --retry-delay 5 --retry-max-time 360 \
-      --output "$output" "$url"
+      --retry 5 --retry-all-errors --retry-delay 5 --retry-max-time 900 \
+      --continue-at - --output "$output" "$url"
   fi
 }
 
@@ -281,16 +281,31 @@ if ! command -v google-chrome-stable >/dev/null 2>&1 \
   run_with_spinner "Refreshing Ubuntu package lists" apt-get -o DPkg::Lock::Timeout=300 update
   run_with_spinner "Installing download tools" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y ca-certificates curl
 
-  CHROME_DEB="$STAGE_DIR/google-chrome-stable_current_amd64.deb"
+  # Keep the download outside the temporary staging directory so an interrupted
+  # bootstrap can resume it on the next run instead of downloading from zero.
+  CHROME_CACHE_DIR="/var/cache/yapdp-kiosk/downloads"
+  install -d -m 0750 "$CHROME_CACHE_DIR"
+  CHROME_DEB="$CHROME_CACHE_DIR/google-chrome-stable_current_amd64.deb"
   CHROME_DEB_PART="${CHROME_DEB}.part"
-  rm -f "$CHROME_DEB_PART"
-  download_chrome_with_progress "$CHROME_DEB_PART" \
-    "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb"
-  mv "$CHROME_DEB_PART" "$CHROME_DEB"
+  CHROME_URL="https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb"
 
   if [[ "$(dpkg-deb -f "$CHROME_DEB" Package 2>/dev/null || true)" != "google-chrome-stable" ]]; then
-    echo "Downloaded file is not the expected google-chrome-stable Debian package." >&2
-    exit 1
+    rm -f "$CHROME_DEB"
+    if [[ "$(dpkg-deb -f "$CHROME_DEB_PART" Package 2>/dev/null || true)" == "google-chrome-stable" ]]; then
+      # The previous run may have completed the transfer but exited before publishing it.
+      mv "$CHROME_DEB_PART" "$CHROME_DEB"
+    else
+      echo "Downloading Google Chrome; any existing partial download will be resumed."
+      download_chrome_with_progress "$CHROME_DEB_PART" "$CHROME_URL"
+      if [[ "$(dpkg-deb -f "$CHROME_DEB_PART" Package 2>/dev/null || true)" != "google-chrome-stable" ]]; then
+        echo "Downloaded file is incomplete or is not the expected google-chrome-stable Debian package." >&2
+        echo "The partial download has been kept at $CHROME_DEB_PART for the next run." >&2
+        exit 1
+      fi
+      mv "$CHROME_DEB_PART" "$CHROME_DEB"
+    fi
+  else
+    echo "A valid cached Google Chrome package was found; skipping download."
   fi
 
   run_with_spinner "Installing Google Chrome Stable" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y "$CHROME_DEB"
