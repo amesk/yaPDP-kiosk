@@ -25,6 +25,28 @@ if [[ "$EUID" -ne 0 ]]; then
   exit 1
 fi
 
+# Keep the console clean; all command output is retained in a per-run log.
+LOG_DIR="/var/log/yapdp-kiosk"
+install -d -m 0750 "$LOG_DIR"
+LOG_FILE="$LOG_DIR/bootstrap-$(date +%Y%m%d-%H%M%S)-$.log"
+export YAPDP_INSTALL_LOG="$LOG_FILE"
+exec > >(tee -a "$LOG_FILE" >/dev/null) 2>&1
+echo "===== yaPDP kiosk bootstrap started: $(date --iso-8601=seconds) ====="
+echo "Log file: $LOG_FILE"
+
+show_phase() {
+  local percent="$1" title="$2"
+  echo "[$percent%] $title"
+  if [[ -t 0 && -t 1 && -r /dev/tty ]] && command -v dialog >/dev/null 2>&1; then
+    dialog --title "yaPDP Museum Kiosk Setup" --infobox \
+      "$title\n\nOverall progress: $percent%" 8 76 < /dev/tty || true
+  else
+    printf '[%s%%] %s\n' "$percent" "$title" > /dev/tty 2>/dev/null || true
+  fi
+}
+
+trap 'status=$?; line=$LINENO; command=$BASH_COMMAND; echo "ERROR: exit $status at line $line: $command"; echo "Installation log: $LOG_FILE"; if [[ -t 0 && -t 1 && -r /dev/tty ]] && command -v dialog >/dev/null 2>&1; then dialog --title "yaPDP Kiosk Setup — Error" --msgbox "Installation failed (exit code $status).\n\nDetailed log:\n$LOG_FILE" 10 78 < /dev/tty || true; else echo "Installation failed. Log: $LOG_FILE" >&2; fi' ERR
+
 if [[ ! -r /etc/os-release ]]; then
   echo "Cannot identify the operating system." >&2
   exit 1
@@ -51,6 +73,8 @@ if ! dpkg-query -W -f='${Status}' gdm3 2>/dev/null | grep -q "install ok install
   echo "GNOME Display Manager (gdm3) is required. Install Ubuntu Desktop with its default display manager first." >&2
   exit 1
 fi
+
+show_phase 5 "Collecting installation settings..."
 
 # Collect kiosk-specific settings before downloading or changing the system.
 # NONINTERACTIVE=1 skips the UI and uses environment variables/defaults.
@@ -83,7 +107,9 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -t 0 && -t 1 ]]; then
   ask_setting IDLE_REDIRECT "URL to open after inactivity (HTTP(S) or relative URL):" "$IDLE_REDIRECT"
 
   PLYMOUTH_DEFAULT=(--defaultno)
-  if [[ "$INSTALL_PLYMOUTH" == "1" ]]; then
+  show_phase 85 "Configuring GNOME Kiosk, nginx and automatic login..."
+
+if [[ "$INSTALL_PLYMOUTH" == "1" ]]; then
     PLYMOUTH_DEFAULT=()
   fi
   if dialog "${PLYMOUTH_DEFAULT[@]}" --title "Optional boot splash" --yesno \
@@ -147,6 +173,8 @@ STAGE_DIR="$(mktemp -d /opt/.yapdp-exhibit.XXXXXX)"
 cleanup() { rm -rf "$STAGE_DIR"; }
 trap cleanup EXIT
 
+show_phase 15 "Checking and installing Google Chrome..."
+
 # Prefer the official Google Chrome Stable build for a predictable exhibit
 # runtime. If it is absent, install Google's signed Debian package. Chromium
 # may already be present, but is not silently substituted for Chrome.
@@ -202,6 +230,7 @@ fetch_pinned_repo() {
   git -C "$destination" checkout --quiet --detach FETCH_HEAD
 }
 
+show_phase 35 "Downloading pinned yaPDP and kiosk repositories..."
 fetch_pinned_repo "$KIOSK_REPO_URL" "$KIOSK_REF" "$STAGE_DIR/yaPDP-kiosk"
 fetch_pinned_repo "$YAPDP_REPO_URL" "$YAPDP_REF" "$STAGE_DIR/yaPDP"
 
@@ -218,6 +247,7 @@ fi
 mv "$STAGE_DIR" "$INSTALL_ROOT"
 trap - EXIT
 
+show_phase 55 "Preparing the kiosk installation..."
 echo "Repositories installed at $INSTALL_ROOT."
 echo "Starting the Ubuntu 24.04 kiosk installer..."
 KIOSK_USER="$KIOSK_USER" IDLE_TIMEOUT="$IDLE_TIMEOUT" IDLE_REDIRECT="$IDLE_REDIRECT" \
@@ -233,6 +263,8 @@ if [[ "$INSTALL_PLYMOUTH" == "1" ]]; then
   fi
 fi
 
+show_phase 100 "Installation completed."
 echo
 echo "Initial setup is complete. Reboot to enter the kiosk account automatically."
+echo "Detailed installation log: $LOG_FILE"
 echo "Keep a separate administrator account for maintenance."
