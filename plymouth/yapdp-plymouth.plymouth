@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=yaPDP PDP-11/70
+Description=Animated PDP-11/70 front panel for the yaPDP museum kiosk
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/yapdp-plymouth
+ScriptFile=/usr/share/plymouth/themes/yapdp-plymouth/yapdp-plymouth.script
