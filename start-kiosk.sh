@@ -68,7 +68,7 @@ disable_gnome_shortcuts() {
 disable_idle_lock() {
   gsettings set org.gnome.desktop.screensaver lock-enabled false
   gsettings set org.gnome.desktop.screensaver idle-activation-enabled false
-  gsettings set org.gnome.desktop.session idle-delay uint32 0
+  gsettings set org.gnome.desktop.session idle-delay 0
 }
 
 disable_gnome_shortcuts
@@ -89,11 +89,3 @@ while true; do
     "$KIOSK_URL" || true
   sleep 2
 done
-  --kiosk \
-  --no-first-run \
-  --no-default-browser-check \
-  --password-store=basic \
-  --disable-session-crashed-bubble \
-  --disable-infobars \
-  --user-data-dir="$PROFILE_DIR" \
-  "$KIOSK_URL"
