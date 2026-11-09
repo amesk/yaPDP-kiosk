@@ -17,5 +17,8 @@ window.KIOSK_CONFIG = {
   media: [
     // { src: "media/intro.jpg", type: "image", duration: 10000, caption: "A computer history story" },
     // { src: "media/exhibit.mp4", type: "video", duration: 20000, caption: "See the machine in action" }
+    { src: "media/basic.png", type: "image", duration: 10000, caption: "A computer history story #1" },
+    { src: "media/bsd.png", type: "image", duration: 10000, caption: "A computer history story #2" },
+    { src: "media/lunar-lander.png", type: "image", duration: 10000, caption: "A computer history story#3" },
   ]
 };
