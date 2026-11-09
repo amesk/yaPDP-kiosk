@@ -7,7 +7,7 @@ set -euo pipefail
 #
 # Refs are deliberately pinned. Update them only after validating a new release.
 
-# -v / --verbose disables the wizard and progress UI, showing command output.
+# -v / --verbose keeps the setup wizard but replaces progress UI with command output.
 VERBOSE=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -16,8 +16,8 @@ while [[ $# -gt 0 ]]; do
       cat <<'USAGE'
 Usage: sudo bash instant-setup.sh [-v|--verbose]
 
-  -v, --verbose  Plain console mode: no dialog screens or spinners;
-                 show command output and use environment/default settings.
+  -v, --verbose  Keep setup dialogs; replace progress screens and spinners
+                 with plain console progress and command output.
   -h, --help     Show this help.
 USAGE
       exit 0
@@ -67,22 +67,14 @@ cleanup() {
     # Do not let the EXIT trap run a second time after handling SIGINT.
     trap - INT TERM EXIT
 
-    if [[ "$VERBOSE" == "1" ]]; then
-      if GIT_TERMINAL_PROMPT=0 git -C "$repository" \
-        -c http.connectTimeout=30 \
-        fetch --progress --depth 1 origin "$ref"; then
-        return 0
-      else
-        status=$?
-      fi
-    elif [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]] \
+    if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]] \
        && command -v dialog >/dev/null 2>&1; then
       dialog --title "yaPDP Museum Kiosk Setup" --msgbox \
-        "Installation was interrupted.\n\nNo further installation steps will be run.\n\nThe detailed log is saved at:\n$LOG_FILE" \
+        "Installation was interrupted.\\n\\nNo further installation steps will be run.\\n\\nThe detailed log is saved at:\\n$LOG_FILE" \
         10 78 </dev/tty >/dev/tty 2>&1 || true
-      clear >/dev/tty 2>&1 || printf '\033[H\033[2J\033[3J' > /dev/tty 2>/dev/null || true
+      clear >/dev/tty 2>&1 || printf '\\033[H\\033[2J\\033[3J' > /dev/tty 2>/dev/null || true
     else
-      printf '\nInstallation interrupted. Log: %s\n' "$LOG_FILE" > /dev/tty 2>/dev/null || true
+      printf '\\nInstallation interrupted. Log: %s\\n' "$LOG_FILE" > /dev/tty 2>/dev/null || true
     fi
 
     if [[ -n "${STAGE_DIR:-}" && -d "$STAGE_DIR" ]]; then
@@ -415,12 +407,9 @@ fetch_git_with_progress() {
   for attempt in 1 2 3; do
     echo "Fetching $label (attempt $attempt of 3)..."
 
-    if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]] \
+    if [[ "$VERBOSE" != "1" && "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]] \
        && command -v dialog >/dev/null 2>&1; then
-      # Keep the entire pipeline synchronous. Process substitution here would
-      # Bound connection establishment, but do not abort slow transfers on
-      # museum networks that may throttle or temporarily pause GitHub downloads.
-      # let the gauge outlive git fetch and leave stale dialogs between repos.
+      # Keep the entire pipeline synchronous so the gauge cannot outlive git fetch.
       if GIT_TERMINAL_PROMPT=0 git -C "$repository" \
         -c http.connectTimeout=30 \
         fetch --progress --depth 1 origin "$ref" 2>&1 \
@@ -442,9 +431,11 @@ fetch_git_with_progress() {
         status=$?
       fi
     else
+      # In verbose mode the global tee already writes command output to both
+      # the terminal and the log; avoid an extra pipeline around git fetch.
       if GIT_TERMINAL_PROMPT=0 git -C "$repository" \
         -c http.connectTimeout=30 \
-        fetch --progress --depth 1 origin "$ref" 2>&1 | tee -a "$LOG_FILE"; then
+        fetch --progress --depth 1 origin "$ref"; then
         return 0
       else
         status=$?
