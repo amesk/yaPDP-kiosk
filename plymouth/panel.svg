@@ -11,7 +11,7 @@
  <rect x="32" y="44" width="1376" height="376" rx="13" fill="url(#case)" stroke="#879198" stroke-opacity=".5" stroke-width="2"/>
  <rect x="54" y="66" width="1332" height="332" rx="8" fill="url(#face)" stroke="#05090c" stroke-width="3"/>
  <path d="M66 82 H1374" stroke="#8a969c" opacity=".22"/>
- <text x="94" y="126" fill="#d5d9d9" font-family="DejaVu Sans, sans-serif" font-size="27" letter-spacing="4">DIGITAL EQUIPMENT CORPORATION</text>
+ <text x="94" y="119" fill="#aeb9bd" font-family="DejaVu Sans, sans-serif" font-size="13" letter-spacing="1">DIGITAL EQUIPMENT CORPORATION</text>
  <text x="95" y="179" fill="#e2e5e4" font-family="DejaVu Sans, sans-serif" font-size="48" font-weight="bold" letter-spacing="2">PDP-11/70</text>
  <text x="96" y="211" fill="#89969b" font-family="DejaVu Sans, sans-serif" font-size="16" letter-spacing="3">PROCESSOR STATUS REGISTER</text>
  <path d="M470 94 V370" stroke="#59666d" stroke-width="2" opacity=".65"/>
