@@ -7,25 +7,20 @@ set -euo pipefail
 #
 # Refs are deliberately pinned. Update them only after validating a new release.
 
-# -v / --verbose keeps the setup wizard but replaces progress UI with command output.
-VERBOSE=0
-while [[ $# -gt 0 ]]; do
+if [[ "$#" -gt 0 ]]; then
   case "$1" in
-    -v|--verbose) VERBOSE=1; shift ;;
     -h|--help)
       cat <<'USAGE'
-Usage: sudo bash instant-setup.sh [-v|--verbose]
+Usage: sudo bash instant-setup.sh
 
-  -v, --verbose  Keep setup dialogs; replace progress screens and spinners
-                 with plain console progress and command output.
-  -h, --help     Show this help.
+The setup wizard uses dialog. Installation phases and command output
+are printed to the terminal and saved to the detailed log.
 USAGE
       exit 0
       ;;
-    *) echo "Unknown option: $1" >&2; echo "Use --help for usage." >&2; exit 2 ;;
+    *) echo "Unknown option: $1" >&2; echo "Usage: sudo bash $0" >&2; exit 2 ;;
   esac
-done
-# Verbose mode changes progress/output presentation only; keep the settings wizard.
+fi
 
 # Repository URLs and refs are editable in the dialog or overridable through the environment.
 YAPDP_REPO_URL="${YAPDP_REPO_URL:-https://github.com/amesk/yaPDP.git}"
@@ -50,11 +45,7 @@ LOG_DIR="/var/log/yapdp-kiosk"
 install -d -m 0750 "$LOG_DIR"
 LOG_FILE="$LOG_DIR/bootstrap-$(date +%Y%m%d-%H%M%S-%N).log"
 export YAPDP_INSTALL_LOG="$LOG_FILE"
-if [[ "$VERBOSE" == "1" ]]; then
-  exec > >(tee -a "$LOG_FILE" >/dev/tty) 2>&1
-else
-  exec > >(tee -a "$LOG_FILE" >/dev/null) 2>&1
-fi
+exec > >(tee -a "$LOG_FILE" >/dev/tty) 2>&1
 echo "===== yaPDP kiosk bootstrap started: $(date --iso-8601=seconds) ====="
 echo "Log file: $LOG_FILE"
 
@@ -99,50 +90,18 @@ show_phase() {
   printf -v bar '%*s' "$filled" ''
   bar="${bar// /#}"
   printf -v bar '%-*s' "$width" "$bar"
-  if [[ "$VERBOSE" == "1" ]]; then
-    printf '[%3d%%] %s\n' "$percent" "$title"
-    return
-  fi
-  printf '\033[H\033[2J\033[3J' > /dev/tty 2>/dev/null || true
-  {
-    printf '\n  yaPDP MUSEUM KIOSK SETUP\n\n'
-    printf '  %s\n\n' "$title"
-    printf '  [%s] %3d%%\n\n' "$bar" "$percent"
-    printf '  Detailed output is being saved to:\n  %s\n' "$LOG_FILE"
-  } > /dev/tty 2>/dev/null || echo "[$percent%] $title"
+  printf '[%3d%%] %s\n' "$percent" "$title"
 }
 
 
-run_with_spinner() {
+run_command() {
   local message="$1"
   shift
-  if [[ "$VERBOSE" == "1" ]]; then
-    printf '==> %s\n' "$message"
-    "$@"
-    return $?
-  fi
-  local pid status frame=0
-  local spinner='|/-\\'
-
-  ("$@") &
-  pid=$!
-
-  while kill -0 "$pid" 2>/dev/null; do
-    printf '\r  Working %s  %s' "${spinner:frame%4:1}" "$message" > /dev/tty 2>/dev/null || true
-    frame=$((frame + 1))
-    sleep 0.12
-  done
-
-  if wait "$pid"; then
-    status=0
-  else
-    status=$?
-  fi
-  printf '\r\033[K' > /dev/tty 2>/dev/null || true
-  return "$status"
+  printf '\n==> %s\n' "$message"
+  "$@"
 }
 
-download_chrome_with_progress() {
+download_chrome() {
   local output="$1"
   local url="$2"
   local attempt status=0
@@ -153,44 +112,13 @@ download_chrome_with_progress() {
     --continue-at - --output "$output"
   )
 
-  # Keep each failed attempt's partial file. The next curl invocation uses
-  # --continue-at - again, so a slow or interrupted transfer resumes instead
-  # of starting from byte zero. There is deliberately no fixed total timeout:
-  # the low-speed limit detects a stalled connection without penalizing a
-  # consistently slow one.
+  # Keep partial data between attempts; curl resumes from the last received byte.
   for attempt in 1 2 3 4 5 6 7 8 9 10; do
     echo "Downloading Google Chrome Stable (attempt $attempt of 10)..."
-
-    if [[ "$VERBOSE" != "1" && "${NONINTERACTIVE:-0}" != "1" ]] \
-       && [[ -r /dev/tty && -w /dev/tty ]] \
-       && command -v dialog >/dev/null 2>&1; then
-      # Use a synchronous pipeline. Curl's progress stream is translated
-      # from carriage-return updates into dialog gauge percentages; the
-      # previous process-substitution approach could leave the gauge at 0%.
-      if curl "${curl_args[@]}" "$url" 2>&1 \
-        | tee -a "$LOG_FILE" \
-        | tr '\r' '\n' \
-        | awk '{
-            if (match($0, /[0-9]+([.][0-9]+)?%/)) {
-              value = substr($0, RSTART, RLENGTH)
-              sub(/%/, "", value)
-              printf "%d\\n", value
-              fflush()
-            }
-          }' \
-        | dialog --title "yaPDP Kiosk Setup" \
-          --gauge "Downloading Google Chrome Stable...\\n\\nThe transfer can take several minutes. Interrupted downloads will resume." \
-          9 76 0 >/dev/tty 2>&1; then
-        return 0
-      else
-        status=$?
-      fi
+    if curl "${curl_args[@]}" "$url"; then
+      return 0
     else
-      if curl "${curl_args[@]}" "$url"; then
-        return 0
-      else
-        status=$?
-      fi
+      status=$?
     fi
 
     if (( attempt < 10 )); then
@@ -204,7 +132,7 @@ download_chrome_with_progress() {
   return "$status"
 }
 
-trap 'status=$?; line=$LINENO; command=$BASH_COMMAND; echo "ERROR: exit $status at line $line: $command"; echo "Installation log: $LOG_FILE"; if [[ "$VERBOSE" != "1" && -r /dev/tty && -w /dev/tty ]] && command -v dialog >/dev/null 2>&1; then dialog --title "yaPDP Kiosk Setup — Error" --msgbox "Installation failed (exit code $status).\n\nDetailed log:\n$LOG_FILE" 10 78 </dev/tty >/dev/tty 2>&1 || true; else echo "Installation failed. Log: $LOG_FILE" >&2; fi' ERR
+trap 'status=$?; line=$LINENO; command=$BASH_COMMAND; echo "ERROR: exit $status at line $line: $command"; echo "Installation log: $LOG_FILE"; if [[ -r /dev/tty && -w /dev/tty ]] && command -v dialog >/dev/null 2>&1; then dialog --title "yaPDP Kiosk Setup — Error" --msgbox "Installation failed (exit code $status).\\n\\nDetailed log:\\n$LOG_FILE" 10 78 </dev/tty >/dev/tty 2>&1 || true; else echo "Installation failed. Log: $LOG_FILE" >&2; fi' ERR
 
 if [[ ! -r /etc/os-release ]]; then
   echo "Cannot identify the operating system." >&2
@@ -247,7 +175,7 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]] &&
     printf '  Detailed installation log:\n  %s\n' "$LOG_FILE"
   } > /dev/tty
 
-  if ! run_with_spinner "Preparing the setup wizard" bash -c 'apt-get -o DPkg::Lock::Timeout=300 update && DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y dialog'; then
+  if ! run_command "Preparing the setup wizard" bash -c 'apt-get -o DPkg::Lock::Timeout=300 update && DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y dialog'; then
     {
       printf '\n  ERROR: Could not install the dialog interface.\n'
       printf '  The installer cannot continue interactively.\n\n'
@@ -436,8 +364,8 @@ if ! command -v google-chrome-stable >/dev/null 2>&1 \
   fi
 
   echo "Google Chrome Stable is not installed; installing the official Google .deb package."
-  run_with_spinner "Refreshing Ubuntu package lists" apt-get -o DPkg::Lock::Timeout=300 update
-  run_with_spinner "Installing download tools" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y ca-certificates curl
+  run_command "Refreshing Ubuntu package lists" apt-get -o DPkg::Lock::Timeout=300 update
+  run_command "Installing download tools" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y ca-certificates curl
 
   # Keep the download outside the temporary staging directory so an interrupted
   # bootstrap can resume it on the next run instead of downloading from zero.
@@ -453,7 +381,7 @@ if ! command -v google-chrome-stable >/dev/null 2>&1 \
       mv "$CHROME_DEB_PART" "$CHROME_DEB"
     else
       echo "Downloading Google Chrome; any existing partial download will be resumed."
-      download_chrome_with_progress "$CHROME_DEB_PART" "$CHROME_URL"
+      download_chrome "$CHROME_DEB_PART" "$CHROME_URL"
       if [[ "$(dpkg-deb -f "$CHROME_DEB_PART" Package 2>/dev/null || true)" != "google-chrome-stable" ]]; then
         echo "Downloaded file is incomplete or is not the expected google-chrome-stable Debian package." >&2
         echo "The partial download has been kept at $CHROME_DEB_PART for the next run." >&2
@@ -465,7 +393,7 @@ if ! command -v google-chrome-stable >/dev/null 2>&1 \
     echo "A valid cached Google Chrome package was found; skipping download."
   fi
 
-  run_with_spinner "Installing Google Chrome Stable" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y "$CHROME_DEB"
+  run_command "Installing Google Chrome Stable" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y "$CHROME_DEB"
 fi
 
 CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || true)"
@@ -489,8 +417,8 @@ fi
 show_phase 20 "Google Chrome is ready. Preparing repository download..."
 
 if ! command -v git >/dev/null 2>&1; then
-  run_with_spinner "Refreshing Ubuntu package lists" apt-get -o DPkg::Lock::Timeout=300 update
-  run_with_spinner "Installing Git" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y git ca-certificates
+  run_command "Refreshing Ubuntu package lists" apt-get -o DPkg::Lock::Timeout=300 update
+  run_command "Installing Git" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y git ca-certificates
 fi
 
 fetch_git_with_progress() {
@@ -502,39 +430,13 @@ fetch_git_with_progress() {
   for attempt in 1 2 3; do
     echo "Fetching $label (attempt $attempt of 3)..."
 
-    if [[ "$VERBOSE" != "1" && "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]] \
-       && command -v dialog >/dev/null 2>&1; then
-      # Keep the entire pipeline synchronous so the gauge cannot outlive git fetch.
-      if GIT_TERMINAL_PROMPT=0 git -C "$repository" \
-        -c http.connectTimeout=30 \
-        fetch --progress --depth 1 origin "$ref" 2>&1 \
-        | tee -a "$LOG_FILE" \
-        | tr '\r' '\n' \
-        | awk '{
-            if (match($0, /[0-9]+%/)) {
-              value = substr($0, RSTART, RLENGTH)
-              sub(/%/, "", value)
-              print value
-              fflush()
-            }
-          }' \
-        | dialog --title "yaPDP Museum Kiosk Setup" \
-          --gauge "Fetching $label from GitHub...\n\nReceiving and indexing Git objects" \
-          8 76 0 >/dev/tty 2>&1; then
-        return 0
-      else
-        status=$?
-      fi
+    # The global tee sends git's complete progress output to the terminal and log.
+    if GIT_TERMINAL_PROMPT=0 git -C "$repository" \
+      -c http.connectTimeout=30 \
+      fetch --progress --depth 1 origin "$ref"; then
+      return 0
     else
-      # In verbose mode the global tee already writes command output to both
-      # the terminal and the log; avoid an extra pipeline around git fetch.
-      if GIT_TERMINAL_PROMPT=0 git -C "$repository" \
-        -c http.connectTimeout=30 \
-        fetch --progress --depth 1 origin "$ref"; then
-        return 0
-      else
-        status=$?
-      fi
+      status=$?
     fi
 
     if (( attempt < 3 )); then
