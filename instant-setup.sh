@@ -12,7 +12,7 @@ YAPDP_REPO_URL="${YAPDP_REPO_URL:-https://github.com/amesk/yaPDP.git}"
 KIOSK_REPO_URL="${KIOSK_REPO_URL:-https://github.com/amesk/yaPDP-kiosk.git}"
 # Keep known-good revisions pinned by default. Forks can override the refs too.
 YAPDP_REF="${YAPDP_REF:-6d949d18d5b335bc69effc0dda8b80bb39afb015}"
-KIOSK_REF="${KIOSK_REF:-abc911a2b77b87915f255b0e19600c1c0b97b7c5}"
+KIOSK_REF="${KIOSK_REF:-d3aac23b9748f69b967837fcf8bca4b2f0b90e56}"
 readonly INSTALL_ROOT="/opt/yapdp-exhibit"
 
 KIOSK_USER="${KIOSK_USER:-yapdp-kiosk}"
@@ -293,6 +293,20 @@ fetch_pinned_repo() {
 show_phase 30 "Downloading pinned yaPDP and kiosk repositories..."
 fetch_pinned_repo "$KIOSK_REPO_URL" "$KIOSK_REF" "$STAGE_DIR/yaPDP-kiosk"
 fetch_pinned_repo "$YAPDP_REPO_URL" "$YAPDP_REF" "$STAGE_DIR/yaPDP"
+
+# Refuse obsolete kiosk revisions that still install a normal GNOME desktop
+# with a Chrome autostart entry instead of the dedicated GNOME Kiosk session.
+if ! grep -q 'gnome-kiosk-script-session' "$STAGE_DIR/yaPDP-kiosk/install/ubuntu-24.04.sh"; then
+  echo "The selected KIOSK_REF does not contain the GNOME Kiosk Script Session installer."
+  echo "Choose a newer yaPDP-kiosk ref; this revision would start a regular GNOME desktop."
+  exit 1
+fi
+if [[ "$INSTALL_PLYMOUTH" == "1" && ! -f "$STAGE_DIR/yaPDP-kiosk/plymouth/install.sh" ]]; then
+  echo "Plymouth was selected, but the selected KIOSK_REF has no Plymouth installer."
+  exit 1
+fi
+echo "Selected yaPDP revision: $(git -C "$STAGE_DIR/yaPDP" rev-parse HEAD)"
+echo "Selected yaPDP-kiosk revision: $(git -C "$STAGE_DIR/yaPDP-kiosk" rev-parse HEAD)"
 
 # Keep the installed tree root-owned; the kiosk user only needs read access.
 chown -R root:root "$STAGE_DIR"
