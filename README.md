@@ -20,11 +20,11 @@ The first-run wizard uses `dialog` to collect the two Git repository URLs, the v
 The same settings can be supplied through environment variables. This also enables unattended installation:
 
 ```bash
-sudo env NONINTERACTIVE=1 \\
-  YAPDP_REPO_URL=https://github.com/amesk/yaPDP.git \\
-  KIOSK_REPO_URL=https://github.com/amesk/yaPDP-kiosk.git \\
-  IDLE_TIMEOUT=180 \\
-  IDLE_REDIRECT=/ \\
+sudo env NONINTERACTIVE=1 \
+  YAPDP_REPO_URL=https://github.com/amesk/yaPDP.git \
+  KIOSK_REPO_URL=https://github.com/amesk/yaPDP-kiosk.git \
+  IDLE_TIMEOUT=180 \
+  IDLE_REDIRECT=/ \
   bash ./instant-setup.sh
 ```
 
