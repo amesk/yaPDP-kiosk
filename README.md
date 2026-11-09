@@ -60,6 +60,12 @@ The installer edits the `[daemon]` section of `/etc/gdm3/custom.conf` to set GDM
 
 The kiosk account uses GNOME Kiosk Script Session rather than a normal GNOME desktop. The session launches the user's `~/.local/bin/gnome-kiosk-script`; that script starts the existing Chrome supervisor, which relaunches the browser if it exits. Keep a separate administrator account for maintenance.
 
+### Installer progress and logs
+
+The interactive bootstrap keeps the terminal focused on the current installation phase and an overall phase-based progress indicator. Package-manager, download, and configuration output is suppressed from the live display rather than discarded.
+
+Each run writes its complete stdout/stderr diagnostics to a timestamped log under `/var/log/yapdp-kiosk/`. The bootstrap and nested Ubuntu installer share the same log. If setup fails, the error screen reports the log path; in noninteractive mode the same diagnostics are retained without opening a dialog. The percentage represents completed installation phases, not a fabricated byte-level estimate of apt/dpkg work.
+
 ## Deployment layout
 
 ```text
