@@ -113,9 +113,7 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -t 0 && -t 1 ]]; then
   ask_setting IDLE_REDIRECT "URL to open after inactivity (HTTP(S) or relative URL):" "$IDLE_REDIRECT"
 
   PLYMOUTH_DEFAULT=(--defaultno)
-  show_phase 85 "Configuring GNOME Kiosk, nginx and automatic login..."
-
-if [[ "$INSTALL_PLYMOUTH" == "1" ]]; then
+  if [[ "$INSTALL_PLYMOUTH" == "1" ]]; then
     PLYMOUTH_DEFAULT=()
   fi
   if dialog "${PLYMOUTH_DEFAULT[@]}" --title "Optional boot splash" --yesno \
@@ -255,11 +253,13 @@ trap - EXIT
 
 show_phase 55 "Preparing the kiosk installation..."
 echo "Repositories installed at $INSTALL_ROOT."
+show_phase 70 "Installing GNOME Kiosk, nginx and automatic login..."
 echo "Starting the Ubuntu 24.04 kiosk installer..."
 KIOSK_USER="$KIOSK_USER" IDLE_TIMEOUT="$IDLE_TIMEOUT" IDLE_REDIRECT="$IDLE_REDIRECT" \
   bash "$INSTALL_ROOT/yaPDP-kiosk/install/ubuntu-24.04.sh"
 
 if [[ "$INSTALL_PLYMOUTH" == "1" ]]; then
+  show_phase 88 "Installing the optional Plymouth boot splash..."
   echo
   echo "Installing the optional yaPDP Plymouth boot splash..."
   if ! bash "$INSTALL_ROOT/yaPDP-kiosk/plymouth/install.sh"; then
