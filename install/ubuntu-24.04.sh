@@ -128,7 +128,7 @@ PY
 yapdp_phase 35 "Configuring yaPDP launch URL and web server..."
 
 if ! command -v nginx >/dev/null 2>&1; then
-  apt-get -o DPkg::Lock::Timeout=300 update
+  yapdp_run_with_spinner "Refreshing Ubuntu package lists" apt-get -o DPkg::Lock::Timeout=300 update
   yapdp_run_with_spinner "Installing nginx web server" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y nginx
 fi
 
