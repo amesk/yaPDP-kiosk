@@ -41,13 +41,13 @@ yapdp_run_with_spinner() {
   local message="$1"
   shift
   local pid status frame=0
-  local spinner='|/-\\'
+  local spinner='|/-\'
 
   ("$@") &
   pid=$!
 
   while kill -0 "$pid" 2>/dev/null; do
-    printf '\\r  Working %s  %s' "${spinner:frame%4:1}" "$message" > /dev/tty 2>/dev/null || true
+    printf '\r  Working %s  %s' "${spinner:frame%4:1}" "$message" > /dev/tty 2>/dev/null || true
     frame=$((frame + 1))
     sleep 0.12
   done
@@ -57,7 +57,7 @@ yapdp_run_with_spinner() {
   else
     status=$?
   fi
-  printf '\\r\\033[K' > /dev/tty 2>/dev/null || true
+  printf '\r\033[K' > /dev/tty 2>/dev/null || true
   return "$status"
 }
 
