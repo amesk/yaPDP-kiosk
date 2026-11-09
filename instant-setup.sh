@@ -7,7 +7,7 @@ set -euo pipefail
 #
 # Refs are deliberately pinned. Update them only after validating a new release.
 
-# Repository URLs are editable in the dialog or overridable through the environment.
+# Repository URLs and refs are editable in the dialog or overridable through the environment.
 YAPDP_REPO_URL="${YAPDP_REPO_URL:-https://github.com/amesk/yaPDP.git}"
 KIOSK_REPO_URL="${KIOSK_REPO_URL:-https://github.com/amesk/yaPDP-kiosk.git}"
 # Keep known-good revisions pinned by default. Forks can override the refs too.
@@ -77,6 +77,8 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -t 0 && -t 1 ]]; then
 
   ask_setting YAPDP_REPO_URL "Git repository URL for yaPDP:" "$YAPDP_REPO_URL"
   ask_setting KIOSK_REPO_URL "Git repository URL for yaPDP-kiosk:" "$KIOSK_REPO_URL"
+  ask_setting YAPDP_REF "Git ref for yaPDP (branch, tag, or commit SHA):" "$YAPDP_REF"
+  ask_setting KIOSK_REF "Git ref for yaPDP-kiosk (branch, tag, or commit SHA):" "$KIOSK_REF"
   ask_setting IDLE_TIMEOUT "Visitor inactivity timeout in seconds (0 disables automatic return):" "$IDLE_TIMEOUT"
   ask_setting IDLE_REDIRECT "URL to open after inactivity (HTTP(S) or relative URL):" "$IDLE_REDIRECT"
 
@@ -98,7 +100,7 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -t 0 && -t 1 ]]; then
   fi
 
   if ! dialog --title "Confirm kiosk installation" --yesno \
-    "yaPDP repository:\n$YAPDP_REPO_URL\n\nyaPDP-kiosk repository:\n$KIOSK_REPO_URL\n\nInactivity timeout: $IDLE_TIMEOUT seconds\nReturn URL: $IDLE_REDIRECT\nPlymouth boot splash: $([[ "$INSTALL_PLYMOUTH" == "1" ]] && echo "Yes" || echo "No")\n\nContinue with these settings?" 19 82 < /dev/tty; then
+    "yaPDP repository:\n$YAPDP_REPO_URL\nRef: $YAPDP_REF\n\nyaPDP-kiosk repository:\n$KIOSK_REPO_URL\nRef: $KIOSK_REF\n\nInactivity timeout: $IDLE_TIMEOUT seconds\nReturn URL: $IDLE_REDIRECT\nPlymouth boot splash: $([[ "$INSTALL_PLYMOUTH" == "1" ]] && echo "Yes" || echo "No")\n\nContinue with these settings?" 22 82 < /dev/tty; then
     clear || true
     echo "Installation cancelled." >&2
     exit 1
