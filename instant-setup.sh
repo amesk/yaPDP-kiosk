@@ -250,13 +250,14 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]]; then
   edit_repositories() {
     local values status
     if values="$(dialog --stdout --title "Setup Wizard — 1/3: Repositories" \
+      --extra-button --extra-label "Back" \
       --form "Choose the repository locations and exact revisions to install.\nYou can return to this menu and revise any section before installation." \
-      17 82 6 \
+      19 82 8 \
       "yaPDP URL:"       1 1 "$YAPDP_REPO_URL" 1 20 58 256 \
       "yaPDP REF:"       3 1 "$YAPDP_REF"       3 20 58 256 \
       "Kiosk URL:"       5 1 "$KIOSK_REPO_URL"  5 20 58 256 \
       "Kiosk REF:"       7 1 "$KIOSK_REF"      7 20 58 256 \
-      --extra-button --extra-label "Back" </dev/tty 2>/dev/tty)"; then
+      </dev/tty 2>/dev/tty)"; then
       mapfile -t fields <<< "$values"
       if (( ${#fields[@]} != 4 )); then
         echo "Could not read all repository settings from the wizard." >&2
@@ -277,11 +278,12 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]]; then
   edit_visitor_experience() {
     local values status
     if values="$(dialog --stdout --title "Setup Wizard — 2/3: Visitor experience" \
+      --extra-button --extra-label "Back" \
       --form "Configure when the exhibit returns to its presentation screen." \
-      12 82 3 \
+      14 82 5 \
       "Idle timeout (seconds; 0 disables):" 1 1 "$IDLE_TIMEOUT" 1 38 12 10 \
       "Return URL:"                       3 1 "$IDLE_REDIRECT" 3 38 40 512 \
-      --extra-button --extra-label "Back" </dev/tty 2>/dev/tty)"; then
+      </dev/tty 2>/dev/tty)"; then
       mapfile -t fields <<< "$values"
       if (( ${#fields[@]} != 2 )); then
         echo "Could not read visitor-experience settings from the wizard." >&2
