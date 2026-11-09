@@ -251,7 +251,9 @@ if ! command -v google-chrome-stable >/dev/null 2>&1 \
 
   CHROME_DEB="$STAGE_DIR/google-chrome-stable_current_amd64.deb"
   run_with_spinner "Downloading Google Chrome Stable" curl --fail --location --silent --show-error \
-    --retry 3 --retry-delay 2 \
+    --connect-timeout 20 --max-time 300 \
+    --speed-time 45 --speed-limit 1024 \
+    --retry 2 --retry-delay 3 \
     --output "$CHROME_DEB" \
     "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb"
 
