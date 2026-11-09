@@ -15,7 +15,7 @@ less instant-setup.sh
 sudo bash ./instant-setup.sh
 ```
 
-The first-run wizard uses `dialog` to collect the two Git repository URLs, the visitor inactivity timeout, and the URL to return to when the timeout expires. It also asks whether to install the optional yaPDP Plymouth boot splash; the default is **No**. The defaults point to the official yaPDP repositories, use a three-minute timeout, and return to the kiosk welcome page. The wizard installs the small `dialog` package if it is not already present.
+The first-run wizard uses `dialog` to collect the two Git repository URLs, a Git ref (branch, tag, or commit SHA) for each repository, the visitor inactivity timeout, and the URL to return to when the timeout expires. It also asks whether to install the optional yaPDP Plymouth boot splash; the default is **No**. The defaults point to the official yaPDP repositories, use a three-minute timeout, and return to the kiosk welcome page. The wizard installs the small `dialog` package if it is not already present.
 
 The same settings can be supplied through environment variables. This also enables unattended installation:
 
@@ -29,7 +29,7 @@ sudo env NONINTERACTIVE=1 \
   bash ./instant-setup.sh
 ```
 
-Supported variables are `YAPDP_REPO_URL`, `KIOSK_REPO_URL`, `IDLE_TIMEOUT` (seconds; `0` disables automatic return), `IDLE_REDIRECT` (HTTP(S) URL or relative URL), `INSTALL_PLYMOUTH` (`0` by default; set to `1` to install the optional boot splash), `KIOSK_USER`, `YAPDP_REF`, and `KIOSK_REF`. The two refs remain pinned to known-good commits by default; override them when deploying a fork or another repository that does not contain those commits. When running interactively, environment values are shown as the dialog defaults and can be edited. Set `NONINTERACTIVE=1` to skip all prompts.
+Supported variables are `YAPDP_REPO_URL`, `KIOSK_REPO_URL`, `IDLE_TIMEOUT` (seconds; `0` disables automatic return), `IDLE_REDIRECT` (HTTP(S) URL or relative URL), `INSTALL_PLYMOUTH` (`0` by default; set to `1` to install the optional boot splash), `KIOSK_USER`, `YAPDP_REF`, and `KIOSK_REF`. The two refs default to known-good commit SHAs for reproducible museum deployments; choose a branch, tag, or commit SHA when deploying a fork or another revision. Interactive values are prefilled from the environment/defaults. When running interactively, environment values are shown as the dialog defaults and can be edited. Set `NONINTERACTIVE=1` to skip all prompts.
 
 The script is designed for a **fresh Ubuntu 24.04 Desktop installation**. It refuses to overwrite an existing `/opt/yapdp-exhibit` directory and pins exact commits of both repositories. It does not install the operating system, partition disks, or configure firmware/BIOS settings. The bootstrap installs Chrome Stable from Google's official download endpoint when needed; this requires internet access and an amd64 machine.
 
@@ -37,8 +37,9 @@ The bootstrap:
 1. Checks Ubuntu 24.04 Desktop and GDM.
 2. Installs the official Google Chrome Stable `.deb` from Google if Chrome is not already installed, then verifies the executable and version. On amd64 only.
 3. Installs Git if needed.
-4. Checks out the pinned yaPDP and yaPDP-kiosk revisions under `/opt/yapdp-exhibit/`.
-5. Runs the kiosk installer.\n6. If `INSTALL_PLYMOUTH=1` (or selected in the interactive wizard), installs the optional yaPDP Plymouth theme and rebuilds initramfs. If that optional step fails, the kiosk installation remains in place and the bootstrap prints instructions for retrying it later.
+4. Checks out the selected yaPDP and yaPDP-kiosk refs under `/opt/yapdp-exhibit/`.
+5. Runs the kiosk installer.
+6. If `INSTALL_PLYMOUTH=1` (or selected in the interactive wizard), installs the optional yaPDP Plymouth theme and rebuilds initramfs. If that optional step fails, the kiosk installation remains in place and the bootstrap prints instructions for retrying it later.
 
 Do not pipe a remote script directly into a root shell. Download it, inspect it, and then run it with sudo.
 
