@@ -328,19 +328,64 @@ if ! command -v git >/dev/null 2>&1; then
   run_with_spinner "Installing Git" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y git ca-certificates
 fi
 
+fetch_git_with_progress() {
+  local label="$1"
+  shift
+  local attempt status=0
+
+  for attempt in 1 2 3; do
+    echo "Fetching $label (attempt $attempt of 3)..."
+    if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]] \
+       && command -v dialog >/dev/null 2>&1; then
+      if GIT_TERMINAL_PROMPT=0 git -c http.lowSpeedLimit=1024 -c http.lowSpeedTime=60 \
+        fetch --progress "$@" \
+        2> >(tee -a "$LOG_FILE" | awk 'BEGIN { RS = "[\\r\\n]+" } {
+          if (match($0, /[0-9]+%/)) {
+            value = substr($0, RSTART, RLENGTH)
+            sub(/%/, "", value)
+            printf "%d\\n", value
+            fflush()
+          }
+        }' | dialog --title "yaPDP Museum Kiosk Setup" \
+          --gauge "Fetching $label from GitHub...\\n\\nReceiving and indexing Git objects" \
+          8 76 0 </dev/tty >/dev/tty 2>&1); then
+        return 0
+      else
+        status=$?
+      fi
+    else
+      if GIT_TERMINAL_PROMPT=0 git -c http.lowSpeedLimit=1024 -c http.lowSpeedTime=60 \
+        fetch --progress "$@" 2>&1; then
+        return 0
+      else
+        status=$?
+      fi
+    fi
+
+    if (( attempt < 3 )); then
+      echo "Fetch of $label failed (exit $status); retrying in 5 seconds."
+      sleep 5
+    fi
+  done
+
+  echo "ERROR: Could not fetch $label after 3 attempts." >&2
+  return "$status"
+}
+
 fetch_pinned_repo() {
-  local url="$1"
-  local ref="$2"
-  local destination="$3"
+  local label="$1"
+  local url="$2"
+  local ref="$3"
+  local destination="$4"
   git init -q "$destination"
   git -C "$destination" remote add origin "$url"
-  run_with_spinner "Fetching repository revision" git -C "$destination" fetch --quiet --depth 1 origin "$ref"
+  fetch_git_with_progress "$label" -C "$destination" --depth 1 origin "$ref"
   git -C "$destination" checkout --quiet --detach FETCH_HEAD
 }
 
 show_phase 30 "Downloading pinned yaPDP and kiosk repositories..."
-fetch_pinned_repo "$KIOSK_REPO_URL" "$KIOSK_REF" "$STAGE_DIR/yaPDP-kiosk"
-fetch_pinned_repo "$YAPDP_REPO_URL" "$YAPDP_REF" "$STAGE_DIR/yaPDP"
+fetch_pinned_repo "yaPDP-kiosk" "$KIOSK_REPO_URL" "$KIOSK_REF" "$STAGE_DIR/yaPDP-kiosk"
+fetch_pinned_repo "yaPDP" "$YAPDP_REPO_URL" "$YAPDP_REF" "$STAGE_DIR/yaPDP"
 
 # Refuse obsolete kiosk revisions that still install a normal GNOME desktop
 # with a Chrome autostart entry instead of the dedicated GNOME Kiosk session.
