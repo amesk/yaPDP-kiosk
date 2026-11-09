@@ -152,6 +152,7 @@ fi
 python3 - "$RELEASE_UPGRADES_CONFIG" <<'PY'
 from pathlib import Path
 import re
+import os
 import shutil
 import sys
 import tempfile
@@ -204,7 +205,7 @@ if content != original:
         shutil.copy2(path, backup)
     fd, temporary = tempfile.mkstemp(prefix=path.name + ".", dir=path.parent)
     try:
-        with open(fd, "w", encoding="utf-8") as output:
+        with os.fdopen(fd, "w", encoding="utf-8") as output:
             output.write(content)
         shutil.copystat(path, temporary)
         Path(temporary).replace(path)
