@@ -94,7 +94,7 @@ else:
     launch_url = "/yapdp/pdp11.html"
 
 content = path.read_text(encoding="utf-8")
-pattern = re.compile(r"(?m)^(\s*launchUrl\s*:\s*).*(,\s*)$")
+pattern = re.compile(r"(?m)^([ \t]*launchUrl[ \t]*:[ \t]*).*(,[ \t]*)$")
 content, count = pattern.subn(
     lambda match: match.group(1) + json.dumps(launch_url, ensure_ascii=False) + match.group(2),
     content,
