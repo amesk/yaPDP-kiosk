@@ -250,12 +250,15 @@ if ! command -v google-chrome-stable >/dev/null 2>&1 \
   run_with_spinner "Installing download tools" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y ca-certificates curl
 
   CHROME_DEB="$STAGE_DIR/google-chrome-stable_current_amd64.deb"
-  run_with_spinner "Downloading Google Chrome Stable" curl --fail --location --silent --show-error \
-    --connect-timeout 20 --max-time 300 \
+  CHROME_DEB_PART="${CHROME_DEB}.part"
+  rm -f "$CHROME_DEB_PART"
+  run_with_spinner "Downloading Google Chrome Stable (automatic retries enabled)" curl --fail --location --silent --show-error \
+    --connect-timeout 30 --max-time 300 \
     --speed-time 45 --speed-limit 1024 \
-    --retry 2 --retry-delay 3 \
-    --output "$CHROME_DEB" \
+    --retry 5 --retry-all-errors --retry-delay 5 --retry-max-time 360 \
+    --output "$CHROME_DEB_PART" \
     "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb"
+  mv "$CHROME_DEB_PART" "$CHROME_DEB"
 
   if [[ "$(dpkg-deb -f "$CHROME_DEB" Package 2>/dev/null || true)" != "google-chrome-stable" ]]; then
     echo "Downloaded file is not the expected google-chrome-stable Debian package." >&2
