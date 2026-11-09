@@ -125,7 +125,7 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]]; then
     local answer
     if ! answer="$(dialog --stdout --title "yaPDP Museum Kiosk Setup" \
       --inputbox "$prompt" 10 78 "$current" </dev/tty 2>/dev/tty)"; then
-      clear || true
+      clear >/dev/tty 2>&1 || true
       echo "Installation cancelled." >&2
       exit 1
     fi
@@ -149,7 +149,7 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]]; then
   else
     dialog_status=$?
     if [[ "$dialog_status" -ne 1 ]]; then
-      clear || true
+      clear >/dev/tty 2>&1 || true
       echo "Installation cancelled." >&2
       exit 1
     fi
@@ -158,11 +158,11 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]]; then
 
   if ! dialog --title "Confirm kiosk installation" --yesno \
     "yaPDP repository:\n$YAPDP_REPO_URL\nRef: $YAPDP_REF\n\nyaPDP-kiosk repository:\n$KIOSK_REPO_URL\nRef: $KIOSK_REF\n\nInactivity timeout: $IDLE_TIMEOUT seconds\nReturn URL: $IDLE_REDIRECT\nPlymouth boot splash: $([[ "$INSTALL_PLYMOUTH" == "1" ]] && echo "Yes" || echo "No")\n\nContinue with these settings?" 22 82 </dev/tty >/dev/tty 2>&1; then
-    clear || true
+    clear >/dev/tty 2>&1 || true
     echo "Installation cancelled." >&2
     exit 1
   fi
-  clear || true
+  clear >/dev/tty 2>&1 || true
 fi
 
 show_phase 0 "Settings confirmed. Preparing the installation..."
