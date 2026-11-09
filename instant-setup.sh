@@ -80,29 +80,20 @@ if ! dpkg-query -W -f='${Status}' gdm3 2>/dev/null | grep -q "install ok install
   exit 1
 fi
 
+# The welcome screen and settings wizard both use dialog. Install it
+# before showing either screen; package-manager output remains in the log.
+if [[ "${NONINTERACTIVE:-0}" != "1" && -t 0 && -t 1 ]] &&
+   ! command -v dialog >/dev/null 2>&1; then
+  show_phase 0 "Preparing the installation interface..."
+  apt-get update
+  DEBIAN_FRONTEND=noninteractive apt-get install -y dialog
+fi
+
 show_welcome() {
   [[ "${NONINTERACTIVE:-0}" == "1" || ! -r /dev/tty ]] && return 0
-
-  clear > /dev/tty 2>/dev/null || true
-  cat > /dev/tty <<EOF
-
-  yaPDP MUSEUM KIOSK SETUP
-
-  This installer will prepare this Ubuntu 24.04 computer
-  as a dedicated, full-screen museum exhibit.
-
-  It will configure:
-    - Google Chrome and the GNOME Kiosk session
-    - yaPDP and the kiosk presentation files
-    - A local web server and automatic kiosk login
-
-  Existing files under /opt/yapdp-exhibit will not be overwritten.
-  Detailed installation output will be saved to:
-  $LOG_FILE
-
-  Press Enter to configure the installation, or Ctrl+C to cancel.
-EOF
-  IFS= read -r _ < /dev/tty
+  dialog --title "yaPDP Museum Kiosk Setup" --no-collapse --msgbox \
+    "This installer will prepare this Ubuntu 24.04 computer as a dedicated, full-screen museum exhibit.\n\nIt will configure:\n  • Google Chrome and the GNOME Kiosk session\n  • yaPDP and the kiosk presentation files\n  • A local web server and automatic kiosk login\n\nExisting files under /opt/yapdp-exhibit will not be overwritten.\n\nDetailed installation output is saved to:\n$LOG_FILE\n\nSelect OK to configure the installation, or Cancel to abort." \
+    20 78 < /dev/tty
 }
 
 show_welcome
@@ -110,12 +101,6 @@ show_welcome
 # Collect kiosk-specific settings before downloading or changing the system.
 # NONINTERACTIVE=1 skips the UI and uses environment variables/defaults.
 if [[ "${NONINTERACTIVE:-0}" != "1" && -t 0 && -t 1 ]]; then
-  if ! command -v dialog >/dev/null 2>&1; then
-    echo "Installing the dialog text UI..."
-    apt-get update
-    DEBIAN_FRONTEND=noninteractive apt-get install -y dialog
-  fi
-
   ask_setting() {
     local variable="$1"
     local prompt="$2"
