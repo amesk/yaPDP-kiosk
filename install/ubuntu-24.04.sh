@@ -144,6 +144,9 @@ fi
 
 # Keep the launcher scoped to the kiosk account, not every desktop user.
 rm -f "$OLD_AUTOSTART"
+# The parent may already exist (for example, if it was created by a root
+# provisioning command). Ensure both XDG config directories are user-owned.
+install -d -o "$KIOSK_USER" -g "$KIOSK_USER" -m 0750 "$USER_HOME/.config"
 install -d -o "$KIOSK_USER" -g "$KIOSK_USER" -m 0750 "$USER_HOME/.config/autostart"
 cat > "$USER_AUTOSTART" <<DESKTOP
 [Desktop Entry]
