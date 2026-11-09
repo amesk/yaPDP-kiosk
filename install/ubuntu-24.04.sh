@@ -23,6 +23,9 @@ KIOSK_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 EXHIBIT_DIR="$(dirname -- "$KIOSK_DIR")"
 YAPDP_DIR="$EXHIBIT_DIR/yaPDP"
 
+source "$KIOSK_DIR/lib/installer-ui.sh"
+yapdp_log_init
+
 if [[ "$KIOSK_DIR" == *" "* || "$YAPDP_DIR" == *" "* ]]; then
   echo "Installation paths must not contain spaces (nginx alias configuration)." >&2
   exit 1
@@ -59,6 +62,8 @@ if ! dpkg-query -W -f='${Status}' gdm3 2>/dev/null | grep -q "install ok install
   echo "Use Ubuntu 24.04 Desktop, or install/configure gdm3 first." >&2
   exit 1
 fi
+
+yapdp_phase 15 "Installing GNOME Kiosk session components..."
 
 # Use GNOME's dedicated single-application session instead of a normal desktop
 # with a browser autostart entry. This prevents the desktop from being exposed
@@ -120,10 +125,14 @@ path.write_text(content, encoding="utf-8")
 print(f"Configured yaPDP launch URL: {launch_url}")
 PY
 
+yapdp_phase 35 "Configuring yaPDP launch URL and web server..."
+
 if ! command -v nginx >/dev/null 2>&1; then
   apt-get update
   DEBIAN_FRONTEND=noninteractive apt-get install -y nginx
 fi
+
+yapdp_phase 55 "Preparing the dedicated kiosk account..."
 
 # Create a dedicated, unprivileged account. A newly created account has no
 # usable password; GDM's automatic-login PAM service starts its desktop session.
@@ -276,6 +285,8 @@ if content != original:
         if Path(temporary).exists():
             Path(temporary).unlink()
 PY
+
+yapdp_phase 75 "Configuring GNOME Kiosk and automatic login..."
 
 # Remove the previous desktop-autostart mechanism. The GNOME Kiosk session
 # starts its dedicated user script through the package-provided systemd unit.
@@ -442,6 +453,8 @@ updated[insert_at:insert_at] = missing
 path.write_text("\n".join(updated) + "\n")
 PY
 
+yapdp_phase 95 "Enabling the local web server and finalizing setup..."
+
 systemctl enable --now nginx
 systemctl reload nginx
 
@@ -457,3 +470,5 @@ if ! command -v google-chrome-stable >/dev/null 2>&1 &&
   echo "Google Chrome is not installed. Run instant-setup.sh to install it."
 fi
 echo "The kiosk account is not an administrator; use a separate admin account for maintenance."
+echo "Detailed installation log: ${LOG_FILE:-$YAPDP_INSTALL_LOG}"
+yapdp_phase 100 "Kiosk installation completed."
