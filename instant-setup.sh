@@ -247,51 +247,109 @@ show_welcome
 # Collect kiosk-specific settings before downloading or changing the system.
 # NONINTERACTIVE=1 skips the UI and uses environment variables/defaults.
 if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]]; then
-  ask_setting() {
-    local variable="$1"
-    local prompt="$2"
-    local current="$3"
-    local answer
-    if ! answer="$(dialog --stdout --title "yaPDP Museum Kiosk Setup" \
-      --inputbox "$prompt" 10 78 "$current" </dev/tty 2>/dev/tty)"; then
-      clear >/dev/tty 2>&1 || true
-      echo "Installation cancelled." >&2
-      exit 1
+  edit_repositories() {
+    local values status
+    if values="$(dialog --stdout --title "Setup Wizard — 1/3: Repositories" \
+      --form "Choose the repository locations and exact revisions to install.\nYou can return to this menu and revise any section before installation." \
+      17 82 6 \
+      "yaPDP URL:"       1 1 "$YAPDP_REPO_URL" 1 20 58 256 \
+      "yaPDP REF:"       3 1 "$YAPDP_REF"       3 20 58 256 \
+      "Kiosk URL:"       5 1 "$KIOSK_REPO_URL"  5 20 58 256 \
+      "Kiosk REF:"       7 1 "$KIOSK_REF"      7 20 58 256 \
+      --extra-button --extra-label "Back" </dev/tty 2>/dev/tty)"; then
+      mapfile -t fields <<< "$values"
+      if (( ${#fields[@]} != 4 )); then
+        echo "Could not read all repository settings from the wizard." >&2
+        return 2
+      fi
+      YAPDP_REPO_URL="${fields[0]}"
+      YAPDP_REF="${fields[1]}"
+      KIOSK_REPO_URL="${fields[2]}"
+      KIOSK_REF="${fields[3]}"
+      return 0
+    else
+      status=$?
+      [[ "$status" -eq 3 ]] && return 1
+      return 2
     fi
-    printf -v "$variable" '%s' "$answer"
   }
 
-  ask_setting YAPDP_REPO_URL "Git repository URL for yaPDP:" "$YAPDP_REPO_URL"
-  ask_setting KIOSK_REPO_URL "Git repository URL for yaPDP-kiosk:" "$KIOSK_REPO_URL"
-  ask_setting YAPDP_REF "Git ref for yaPDP (branch, tag, or commit SHA):" "$YAPDP_REF"
-  ask_setting KIOSK_REF "Git ref for yaPDP-kiosk (branch, tag, or commit SHA):" "$KIOSK_REF"
-  ask_setting IDLE_TIMEOUT "Visitor inactivity timeout in seconds (0 disables automatic return):" "$IDLE_TIMEOUT"
-  ask_setting IDLE_REDIRECT "URL to open after inactivity (HTTP(S) or relative URL):" "$IDLE_REDIRECT"
+  edit_visitor_experience() {
+    local values status
+    if values="$(dialog --stdout --title "Setup Wizard — 2/3: Visitor experience" \
+      --form "Configure when the exhibit returns to its presentation screen." \
+      12 82 3 \
+      "Idle timeout (seconds; 0 disables):" 1 1 "$IDLE_TIMEOUT" 1 38 12 10 \
+      "Return URL:"                       3 1 "$IDLE_REDIRECT" 3 38 40 512 \
+      --extra-button --extra-label "Back" </dev/tty 2>/dev/tty)"; then
+      mapfile -t fields <<< "$values"
+      if (( ${#fields[@]} != 2 )); then
+        echo "Could not read visitor-experience settings from the wizard." >&2
+        return 2
+      fi
+      IDLE_TIMEOUT="${fields[0]}"
+      IDLE_REDIRECT="${fields[1]}"
+      return 0
+    else
+      status=$?
+      [[ "$status" -eq 3 ]] && return 1
+      return 2
+    fi
+  }
 
-  PLYMOUTH_DEFAULT=(--defaultno)
-  if [[ "$INSTALL_PLYMOUTH" == "1" ]]; then
-    PLYMOUTH_DEFAULT=()
-  fi
-  if dialog "${PLYMOUTH_DEFAULT[@]}" --title "Optional boot splash" --yesno \
-    "Install the yaPDP PDP-11/70 Plymouth boot splash?\n\nThis changes the system boot theme and rebuilds initramfs.\nYou can also install it later from plymouth/install.sh." 11 78 </dev/tty >/dev/tty 2>&1; then
-    INSTALL_PLYMOUTH=1
-  else
-    dialog_status=$?
-    if [[ "$dialog_status" -ne 1 ]]; then
-      clear >/dev/tty 2>&1 || true
+  edit_boot_appearance() {
+    local status
+    if dialog --title "Setup Wizard — 3/3: Boot appearance" --yesno \
+      "Install the yaPDP PDP-11/70 Plymouth boot splash?\n\nThis changes the system boot theme and rebuilds initramfs.\nYou can also install it later from plymouth/install.sh." \
+      12 78 </dev/tty >/dev/tty 2>&1; then
+      INSTALL_PLYMOUTH=1
+      return 0
+    else
+      status=$?
+      if [[ "$status" -eq 1 ]]; then
+        INSTALL_PLYMOUTH=0
+        return 0
+      fi
+      [[ "$status" -eq 255 ]] && return 1
+      return 2
+    fi
+  }
+
+  while true; do
+    if choice="$(dialog --stdout --title "yaPDP Museum Kiosk Setup — Configuration Wizard" \
+      --menu "Select a section to configure. You can revisit any section before starting the installation." \
+      17 82 6 \
+      "repositories" "Repository URLs and pinned revisions" \
+      "visitor"      "Visitor inactivity and return screen" \
+      "boot"         "Optional Plymouth boot splash" \
+      "review"       "Review all settings and start installation" \
+      </dev/tty 2>/dev/tty)"; then
+      case "$choice" in
+        repositories)
+          if edit_repositories; then :; else status=$?; (( status == 1 )) || exit 1; fi
+          ;;
+        visitor)
+          if edit_visitor_experience; then :; else status=$?; (( status == 1 )) || exit 1; fi
+          ;;
+        boot)
+          if edit_boot_appearance; then :; else status=$?; (( status == 1 )) || exit 1; fi
+          ;;
+        review)
+          review_text="yaPDP repository:\n$YAPDP_REPO_URL\nREF: $YAPDP_REF\n\nyaPDP-kiosk repository:\n$KIOSK_REPO_URL\nREF: $KIOSK_REF\n\nInactivity timeout: $IDLE_TIMEOUT seconds\nReturn URL: $IDLE_REDIRECT\nPlymouth boot splash: $([[ "$INSTALL_PLYMOUTH" == "1" ]] && echo "Yes" || echo "No")\n\nStart installation with these settings?"
+          if dialog --title "Setup Wizard — Review" --yesno "$review_text" 22 82 </dev/tty >/dev/tty 2>&1; then
+            break
+          else
+            status=$?
+            [[ "$status" -eq 1 ]] && continue
+            exit 1
+          fi
+          ;;
+      esac
+    else
       echo "Installation cancelled." >&2
       exit 1
     fi
-    INSTALL_PLYMOUTH=0
-  fi
-
-  if ! dialog --title "Confirm kiosk installation" --yesno \
-    "yaPDP repository:\n$YAPDP_REPO_URL\nRef: $YAPDP_REF\n\nyaPDP-kiosk repository:\n$KIOSK_REPO_URL\nRef: $KIOSK_REF\n\nInactivity timeout: $IDLE_TIMEOUT seconds\nReturn URL: $IDLE_REDIRECT\nPlymouth boot splash: $([[ "$INSTALL_PLYMOUTH" == "1" ]] && echo "Yes" || echo "No")\n\nContinue with these settings?" 22 82 </dev/tty >/dev/tty 2>&1; then
-    clear >/dev/tty 2>&1 || true
-    echo "Installation cancelled." >&2
-    exit 1
-  fi
-  clear >/dev/tty 2>&1 || true
+  done
 fi
 
 show_phase 0 "Settings confirmed. Preparing the installation..."
