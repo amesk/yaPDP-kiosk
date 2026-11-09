@@ -63,8 +63,10 @@ fi
 # Use GNOME's dedicated single-application session instead of a normal desktop
 # with a browser autostart entry. This prevents the desktop from being exposed
 # when the browser process exits.
-apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y gnome-kiosk-script-session
+if ! dpkg-query -W -f='${Status}' gnome-kiosk-script-session 2>/dev/null | grep -q "install ok installed"; then
+  apt-get update
+fi
+DEBIAN_FRONTEND=noninteractive apt-get install -y gnome-kiosk gnome-kiosk-script-session
 
 KIOSK_WAYLAND_SESSION="/usr/share/wayland-sessions/gnome-kiosk-script-wayland.desktop"
 if [[ ! -x /usr/bin/gnome-kiosk-script || ! -f "$KIOSK_WAYLAND_SESSION" ]]; then
@@ -382,48 +384,6 @@ finally:
     if os.path.exists(temporary):
         os.unlink(temporary)
 PY
-# Ubuntu 24.04 runs GNOME Initial Setup on a new account's first login.
-# Mark it complete for the dedicated kiosk user so no welcome wizard covers the exhibit.
-printf 'yes\n' > "$USER_HOME/.config/gnome-initial-setup-done"
-chown "$KIOSK_USER:$KIOSK_USER" "$USER_HOME/.config/gnome-initial-setup-done"
-chmod 0644 "$USER_HOME/.config/gnome-initial-setup-done"
-# Build the desktop entry beside its destination, validate it, then publish it
-# atomically. A direct redirection to USER_AUTOSTART would truncate the live
-# file before the heredoc has been fully written if installation is interrupted.
-AUTOSTART_TMP="$(mktemp "$USER_HOME/.config/autostart/.yapdp-kiosk.desktop.XXXXXX")"
-if ! cat > "$AUTOSTART_TMP" <<DESKTOP
-[Desktop Entry]
-Type=Application
-Name=yaPDP Museum Kiosk
-Comment=Start yaPDP in full-screen kiosk mode
-Exec=/bin/bash $KIOSK_DIR/start-kiosk.sh
-Terminal=false
-X-GNOME-Autostart-enabled=true
-DESKTOP
-then
-  rm -f "$AUTOSTART_TMP"
-  echo "Failed to write the kiosk autostart entry." >&2
-  exit 1
-fi
-
-if [[ ! -s "$AUTOSTART_TMP" ]] ||
-   ! grep -Fxq '[Desktop Entry]' "$AUTOSTART_TMP" ||
-   ! grep -Fxq 'Type=Application' "$AUTOSTART_TMP" ||
-   ! grep -Fxq "Exec=/bin/bash $KIOSK_DIR/start-kiosk.sh" "$AUTOSTART_TMP" ||
-   ! grep -Fxq 'X-GNOME-Autostart-enabled=true' "$AUTOSTART_TMP"; then
-  rm -f "$AUTOSTART_TMP"
-  echo "Generated kiosk autostart entry failed validation; existing entry was left untouched." >&2
-  exit 1
-fi
-
-chown "$KIOSK_USER:$KIOSK_USER" "$AUTOSTART_TMP"
-chmod 0644 "$AUTOSTART_TMP"
-if ! mv -f -- "$AUTOSTART_TMP" "$USER_AUTOSTART"; then
-  rm -f "$AUTOSTART_TMP"
-  echo "Could not publish the kiosk autostart entry; existing entry was left untouched." >&2
-  exit 1
-fi
-
 # Set only the GDM daemon options we own; preserve unrelated local settings.
 python3 - "$GDM_CONFIG" "$KIOSK_USER" <<'PY'
 from pathlib import Path
