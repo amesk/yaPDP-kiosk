@@ -60,6 +60,52 @@ if ! dpkg-query -W -f='${Status}' gdm3 2>/dev/null | grep -q "install ok install
   exit 1
 fi
 
+# Configure the visitor-session hand-off. Values are also accepted from the
+# bootstrap environment, so this installer can be used without the dialog UI.
+IDLE_TIMEOUT="${IDLE_TIMEOUT:-180}"
+IDLE_REDIRECT="${IDLE_REDIRECT:-/}"
+if [[ ! "$IDLE_TIMEOUT" =~ ^[0-9]+$ ]] || (( IDLE_TIMEOUT > 2147483 )); then
+  echo "IDLE_TIMEOUT must be an integer from 0 to 2147483 seconds (0 disables the hand-off)." >&2
+  exit 1
+fi
+
+python3 - "$KIOSK_DIR/config.js" "$IDLE_TIMEOUT" "$IDLE_REDIRECT" <<'PY'
+from pathlib import Path
+from urllib.parse import urlencode, urlsplit
+import json
+import re
+import sys
+
+path = Path(sys.argv[1])
+timeout = int(sys.argv[2])
+redirect = sys.argv[3].strip()
+
+if timeout > 0:
+    if not redirect or any(ord(char) < 32 for char in redirect):
+        raise SystemExit("IDLE_REDIRECT must be a non-empty URL without control characters.")
+    parsed = urlsplit(redirect)
+    if parsed.scheme and parsed.scheme.lower() not in ("http", "https"):
+        raise SystemExit("IDLE_REDIRECT must use HTTP(S), or be a relative URL.")
+    if parsed.scheme.lower() in ("http", "https") and not parsed.netloc:
+        raise SystemExit("IDLE_REDIRECT is missing a host.")
+    query = urlencode((("idle-timeout", str(timeout)), ("idle-redirect", redirect)))
+    launch_url = "/yapdp/pdp11.html?" + query
+else:
+    launch_url = "/yapdp/pdp11.html"
+
+content = path.read_text(encoding="utf-8")
+pattern = re.compile(r"(?m)^(\s*launchUrl\s*:\s*).*(,\s*)$")
+content, count = pattern.subn(
+    lambda match: match.group(1) + json.dumps(launch_url, ensure_ascii=False) + match.group(2),
+    content,
+    count=1,
+)
+if count != 1:
+    raise SystemExit(f"Could not find exactly one launchUrl setting in {path}.")
+path.write_text(content, encoding="utf-8")
+print(f"Configured yaPDP launch URL: {launch_url}")
+PY
+
 if ! command -v nginx >/dev/null 2>&1; then
   apt-get update
   DEBIAN_FRONTEND=noninteractive apt-get install -y nginx
