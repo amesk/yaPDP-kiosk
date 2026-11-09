@@ -124,7 +124,7 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]]; then
     local current="$3"
     local answer
     if ! answer="$(dialog --stdout --title "yaPDP Museum Kiosk Setup" \
-      --inputbox "$prompt" 10 78 "$current" < /dev/tty)"; then
+      --inputbox "$prompt" 10 78 "$current" </dev/tty 2>/dev/tty)"; then
       clear || true
       echo "Installation cancelled." >&2
       exit 1
