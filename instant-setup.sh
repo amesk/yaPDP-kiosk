@@ -51,7 +51,7 @@ show_phase() {
   } > /dev/tty 2>/dev/null || echo "[$percent%] $title"
 }
 
-trap 'status=$?; line=$LINENO; command=$BASH_COMMAND; echo "ERROR: exit $status at line $line: $command"; echo "Installation log: $LOG_FILE"; if [[ -t 0 && -t 1 && -r /dev/tty ]] && command -v dialog >/dev/null 2>&1; then dialog --title "yaPDP Kiosk Setup — Error" --msgbox "Installation failed (exit code $status).\n\nDetailed log:\n$LOG_FILE" 10 78 < /dev/tty || true; else echo "Installation failed. Log: $LOG_FILE" >&2; fi' ERR
+trap 'status=$?; line=$LINENO; command=$BASH_COMMAND; echo "ERROR: exit $status at line $line: $command"; echo "Installation log: $LOG_FILE"; if [[ -r /dev/tty && -w /dev/tty ]] && command -v dialog >/dev/null 2>&1; then dialog --title "yaPDP Kiosk Setup — Error" --msgbox "Installation failed (exit code $status).\n\nDetailed log:\n$LOG_FILE" 10 78 < /dev/tty || true; else echo "Installation failed. Log: $LOG_FILE" >&2; fi' ERR
 
 if [[ ! -r /etc/os-release ]]; then
   echo "Cannot identify the operating system." >&2
@@ -86,9 +86,12 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]] &&
    ! command -v dialog >/dev/null 2>&1; then
   {
     printf '\n  yaPDP MUSEUM KIOSK SETUP\n\n'
-    printf '  The installer interface (dialog) is not installed.\n'
-    printf '  Preparing it now; this should only take a moment.\n\n'
-    printf '  Package-manager details are being saved to:\n  %s\n' "$LOG_FILE"
+    printf '  Preparing the installation wizard...\n\n'
+    printf '  Ubuntu may be completing background updates. The installer\n'
+    printf '  will wait until the package manager is available, then\n'
+    printf '  prepare the setup screens.\n\n'
+    printf '  Please wait; no action is required.\n\n'
+    printf '  Detailed installation log:\n  %s\n' "$LOG_FILE"
   } > /dev/tty
 
   if ! { apt-get -o DPkg::Lock::Timeout=300 update && DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y dialog; }; then
@@ -114,7 +117,7 @@ show_welcome
 
 # Collect kiosk-specific settings before downloading or changing the system.
 # NONINTERACTIVE=1 skips the UI and uses environment variables/defaults.
-if [[ "${NONINTERACTIVE:-0}" != "1" && -t 0 && -t 1 ]]; then
+if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]]; then
   ask_setting() {
     local variable="$1"
     local prompt="$2"
