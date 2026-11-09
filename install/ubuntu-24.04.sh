@@ -52,8 +52,8 @@ if [[ "${ID:-}" != "ubuntu" || "${VERSION_ID:-}" != "24.04" ]]; then
   exit 1
 fi
 
-if ! command -v apt-get -o DPkg::Lock::Timeout=300 >/dev/null 2>&1; then
-  echo "apt-get -o DPkg::Lock::Timeout=300 was not found." >&2
+if ! command -v apt-get >/dev/null 2>&1; then
+  echo "apt-get was not found." >&2
   exit 1
 fi
 
