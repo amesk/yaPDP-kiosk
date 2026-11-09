@@ -34,6 +34,33 @@ yapdp_log_error() {
   fi
 }
 
+# Run a quiet command in the background while keeping the visitor-facing
+# terminal alive with a lightweight activity spinner. Command output is still
+# captured by the global installer log redirection.
+yapdp_run_with_spinner() {
+  local message="$1"
+  shift
+  local pid status frame=0
+  local spinner='|/-\\'
+
+  ("$@") &
+  pid=$!
+
+  while kill -0 "$pid" 2>/dev/null; do
+    printf '\\r  Working %s  %s' "${spinner:frame%4:1}" "$message" > /dev/tty 2>/dev/null || true
+    frame=$((frame + 1))
+    sleep 0.12
+  done
+
+  if wait "$pid"; then
+    status=0
+  else
+    status=$?
+  fi
+  printf '\\r\\033[K' > /dev/tty 2>/dev/null || true
+  return "$status"
+}
+
 yapdp_phase() {
   local percent="$1" title="$2"
   local width=32 filled empty bar
