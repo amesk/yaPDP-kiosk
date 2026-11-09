@@ -10,7 +10,7 @@ set -euo pipefail
 readonly YAPDP_REPO="https://github.com/amesk/yaPDP.git"
 readonly KIOSK_REPO="https://github.com/amesk/yaPDP-kiosk.git"
 readonly YAPDP_REF="6d949d18d5b335bc69effc0dda8b80bb39afb015" # idle redirect support
-readonly KIOSK_REF="5b5edc580479a97818ab8aed9427abe1985c11fd" # installer + GDM auto-login
+readonly KIOSK_REF="6fd0053ef9e69ea060c18809fe794729d096f7cb" # kiosk hardening + GNOME shortcuts
 readonly INSTALL_ROOT="/opt/yapdp-exhibit"
 
 KIOSK_USER="${KIOSK_USER:-yapdp-kiosk}"
