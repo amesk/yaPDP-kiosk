@@ -163,10 +163,10 @@ section_start = None
 section_end = len(lines)
 
 for index, line in enumerate(lines):
-    if re.match(r"^\\s*\\[DEFAULT\\]\\s*(?:#.*)?$", line, re.I):
+    if re.match(r"^\s*\[DEFAULT\]\s*(?:#.*)?$", line, re.I):
         section_start = index
         for end in range(index + 1, len(lines)):
-            if re.match(r"^\\s*\\[[^]]+\\]", lines[end]):
+            if re.match(r"^\s*\[[^]]+\]", lines[end]):
                 section_end = end
                 break
         break
@@ -181,7 +181,7 @@ if section_start is None:
 updated = []
 seen_prompt = False
 for index, line in enumerate(lines):
-    if section_start < index < section_end and re.match(r"^\\s*#?\\s*Prompt\\s*=", line, re.I):
+    if section_start < index < section_end and re.match(r"^\s*#?\s*Prompt\s*=", line, re.I):
         if not seen_prompt:
             updated.append("Prompt=never")
             seen_prompt = True
@@ -192,12 +192,12 @@ for index, line in enumerate(lines):
 
 if not seen_prompt:
     insert_at = next(
-        (i for i, line in enumerate(updated) if i > section_start and re.match(r"^\\s*\\[[^]]+\\]", line)),
+        (i for i, line in enumerate(updated) if i > section_start and re.match(r"^\s*\[[^]]+\]", line)),
         len(updated),
     )
     updated.insert(insert_at, "Prompt=never")
 
-content = "\\n".join(updated) + "\\n"
+content = "\n".join(updated) + "\n"
 if content != original:
     backup = path.with_name(path.name + ".yapdp-kiosk.bak")
     if not backup.exists():
