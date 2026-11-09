@@ -34,11 +34,18 @@ disable_gnome_shortcuts() {
     switch-to-workspace-up switch-to-workspace-down
     move-to-workspace-left move-to-workspace-right
     move-to-workspace-up move-to-workspace-down
-    panel-run-dialog
+    panel-run-dialog show-desktop
+  )
+  local -a mutter_keys=(
+    switch-to-session-1 switch-to-session-2 switch-to-session-3
+    switch-to-session-4 switch-to-session-5 switch-to-session-6
+    switch-to-session-7 switch-to-session-8 switch-to-session-9
+    switch-to-session-10 switch-to-session-11 switch-to-session-12
   )
   local -a shell_keys=(
     toggle-overview toggle-application-view toggle-message-tray
     show-screenshot-ui show-screen-recording-ui open-application-menu
+    lock-screen logout power-off
     switch-to-application-1 switch-to-application-2 switch-to-application-3
     switch-to-application-4 switch-to-application-5 switch-to-application-6
     switch-to-application-7 switch-to-application-8 switch-to-application-9
@@ -46,6 +53,9 @@ disable_gnome_shortcuts() {
 
   for key in "${wm_keys[@]}"; do
     gsettings set org.gnome.desktop.wm.keybindings "$key" "[]" 2>/dev/null || true
+  done
+  for key in "${mutter_keys[@]}"; do
+    gsettings set org.gnome.mutter.keybindings "$key" "[]" 2>/dev/null || true
   done
   for key in "${shell_keys[@]}"; do
     gsettings set org.gnome.shell.keybindings "$key" "[]" 2>/dev/null || true
