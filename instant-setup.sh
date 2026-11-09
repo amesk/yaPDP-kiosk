@@ -81,20 +81,27 @@ if ! dpkg-query -W -f='${Status}' gdm3 2>/dev/null | grep -q "install ok install
 fi
 
 show_welcome() {
-  [[ "${NONINTERACTIVE:-0}" == "1" || ! -r /dev/tty ]] && return 0
+  [[ "\${NONINTERACTIVE:-0}" == "1" || ! -r /dev/tty ]] && return 0
+
   clear > /dev/tty 2>/dev/null || true
-  {
-    printf '\\n  yaPDP MUSEUM KIOSK SETUP\\n\\n'
-    printf '  This installer will prepare this Ubuntu 24.04 computer\\n'
-    printf '  as a dedicated, full-screen museum exhibit.\\n\\n'
-    printf '  It will configure:\\n'
-    printf '    • Google Chrome and the GNOME Kiosk session\\n'
-    printf '    • yaPDP and the kiosk presentation files\\n'
-    printf '    • A local web server and automatic kiosk login\\n\\n'
-    printf '  Existing files under /opt/yapdp-exhibit will not be overwritten.\\n'
-    printf '  Detailed installation output will be saved to:\\n  %s\\n\\n' "$LOG_FILE"
-    printf '  Press Enter to configure the installation, or Ctrl+C to cancel. '
-  } > /dev/tty
+  cat > /dev/tty <<EOF
+
+  yaPDP MUSEUM KIOSK SETUP
+
+  This installer will prepare this Ubuntu 24.04 computer
+  as a dedicated, full-screen museum exhibit.
+
+  It will configure:
+    - Google Chrome and the GNOME Kiosk session
+    - yaPDP and the kiosk presentation files
+    - A local web server and automatic kiosk login
+
+  Existing files under /opt/yapdp-exhibit will not be overwritten.
+  Detailed installation output will be saved to:
+  $LOG_FILE
+
+  Press Enter to configure the installation, or Ctrl+C to cancel.
+EOF
   IFS= read -r _ < /dev/tty
 }
 
