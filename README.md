@@ -91,7 +91,7 @@ Edit `config.js` to change the presentation text, launch URL, slideshow timing, 
 
 The installer generates `config.js`'s `launchUrl` from `IDLE_TIMEOUT` and `IDLE_REDIRECT`. The default is a three-minute timeout and a return to the kiosk welcome page. The redirect may be a relative URL (for example `/` or `/attract.html`) or an absolute HTTP(S) URL on another site. Set `IDLE_TIMEOUT=0` to disable the automatic hand-off; in that case yaPDP opens without idle parameters.
 
-The installer updates only the `launchUrl` setting and preserves the rest of the presentation configuration. The deployed yaPDP revision must include the idle-timeout/redirect support.
+The installer updates only the `launchUrl` setting and preserves the rest of the presentation configuration. The deployed yaPDP revision must include the idle-timeout/redirect support. The kiosk launcher also disables GNOME's idle screen blanking and automatic screen lock for the dedicated kiosk account, so the exhibit does not fall back to a password prompt during operation. These settings are applied in the kiosk user's graphical session; the administrator's desktop settings are not changed.
 
 Put slideshow images and videos in `media/` and list them in the `media` array. See [media/README.md](media/README.md).
 
