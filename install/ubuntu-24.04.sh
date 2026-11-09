@@ -148,6 +148,11 @@ rm -f "$OLD_AUTOSTART"
 # provisioning command). Ensure both XDG config directories are user-owned.
 install -d -o "$KIOSK_USER" -g "$KIOSK_USER" -m 0750 "$USER_HOME/.config"
 install -d -o "$KIOSK_USER" -g "$KIOSK_USER" -m 0750 "$USER_HOME/.config/autostart"
+# Ubuntu 24.04 runs GNOME Initial Setup on a new account's first login.
+# Mark it complete for the dedicated kiosk user so no welcome wizard covers the exhibit.
+printf 'yes\n' > "$USER_HOME/.config/gnome-initial-setup-done"
+chown "$KIOSK_USER:$KIOSK_USER" "$USER_HOME/.config/gnome-initial-setup-done"
+chmod 0644 "$USER_HOME/.config/gnome-initial-setup-done"
 cat > "$USER_AUTOSTART" <<DESKTOP
 [Desktop Entry]
 Type=Application
