@@ -237,7 +237,9 @@ if ! "$CHROME_BIN" --version; then
   exit 1
 fi
 
-show_phase 30 "Google Chrome is ready. Preparing repository download..."\n\nif ! command -v git >/dev/null 2>&1; then
+show_phase 20 "Google Chrome is ready. Preparing repository download..."
+
+if ! command -v git >/dev/null 2>&1; then
   apt-get update
   DEBIAN_FRONTEND=noninteractive apt-get install -y git ca-certificates
 fi
@@ -273,7 +275,8 @@ show_phase 50 "Repositories downloaded. Preparing kiosk installation..."
 echo "Repositories installed at $INSTALL_ROOT."
 show_phase 55 "Installing GNOME Kiosk, nginx and automatic login..."
 echo "Starting the Ubuntu 24.04 kiosk installer..."
-KIOSK_USER="$KIOSK_USER" IDLE_TIMEOUT="$IDLE_TIMEOUT" IDLE_REDIRECT="$IDLE_REDIRECT" \
+YAPDP_PROGRESS_BASE=55 YAPDP_PROGRESS_SPAN=40 \
+  KIOSK_USER="$KIOSK_USER" IDLE_TIMEOUT="$IDLE_TIMEOUT" IDLE_REDIRECT="$IDLE_REDIRECT" \
   bash "$INSTALL_ROOT/yaPDP-kiosk/install/ubuntu-24.04.sh"
 
 if [[ "$INSTALL_PLYMOUTH" == "1" ]]; then
