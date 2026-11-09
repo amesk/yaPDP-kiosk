@@ -126,3 +126,10 @@ The repository can also be hosted as a static presentation page using GitHub Pag
 ## License
 
 Add the license appropriate for your deployment before redistributing the project.
+
+
+## Plymouth boot splash
+
+The repository includes an optional PDP-11/70-inspired Plymouth theme for the Ubuntu 24.04 exhibit computer. It is installed separately from the kiosk bootstrap because it changes the initramfs boot image.
+
+See [plymouth/README.md](plymouth/README.md). Install with `sudo bash plymouth/install.sh` after testing on the target machine; rollback with `sudo bash plymouth/uninstall.sh`.
