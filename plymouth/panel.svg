@@ -46,5 +46,7 @@
  <text x="1120" y="326" fill="#8e9ba0" font-family="DejaVu Sans, sans-serif" font-size="13" letter-spacing="2">yaPDP</text>
  <text x="1120" y="351" fill="#d9dfdd" font-family="DejaVu Sans, sans-serif" font-size="18" font-weight="bold" letter-spacing="2">SYSTEM BOOT</text>
  <circle cx="1362" cy="91" r="5" fill="#9ba6aa"/><circle cx="1362" cy="405" r="5" fill="#9ba6aa"/>
+ <text x="96" y="301" fill="#9ca8ad" font-family="DejaVu Sans, sans-serif" font-size="12" letter-spacing="2">BOOT SEQUENCE</text>
+ <rect x="96" y="314" width="340" height="10" rx="5" fill="#050b0e" stroke="#536169" stroke-width="1"/>
  <text x="94" y="367" fill="#75838a" font-family="DejaVu Sans, sans-serif" font-size="13" letter-spacing="2">MICROPROGRAMMED PROCESSOR</text>
 </svg>
