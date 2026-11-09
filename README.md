@@ -15,6 +15,21 @@ less instant-setup.sh
 sudo bash ./instant-setup.sh
 ```
 
+The first-run wizard uses `dialog` to collect the two Git repository URLs, the visitor inactivity timeout, and the URL to return to when the timeout expires. The defaults point to the official yaPDP repositories, use a three-minute timeout, and return to the kiosk welcome page. The wizard installs the small `dialog` package if it is not already present.
+
+The same settings can be supplied through environment variables. This also enables unattended installation:
+
+```bash
+sudo env NONINTERACTIVE=1 \\
+  YAPDP_REPO_URL=https://github.com/amesk/yaPDP.git \\
+  KIOSK_REPO_URL=https://github.com/amesk/yaPDP-kiosk.git \\
+  IDLE_TIMEOUT=180 \\
+  IDLE_REDIRECT=/ \\
+  bash ./instant-setup.sh
+```
+
+Supported variables are `YAPDP_REPO_URL`, `KIOSK_REPO_URL`, `IDLE_TIMEOUT` (seconds; `0` disables automatic return), `IDLE_REDIRECT` (HTTP(S) URL or relative URL), `KIOSK_USER`, `YAPDP_REF`, and `KIOSK_REF`. The two refs remain pinned to known-good commits by default; override them when deploying a fork or another repository that does not contain those commits. When running interactively, environment values are shown as the dialog defaults and can be edited. Set `NONINTERACTIVE=1` to skip all prompts.
+
 The script is designed for a **fresh Ubuntu 24.04 Desktop installation**. It refuses to overwrite an existing `/opt/yapdp-exhibit` directory and pins exact commits of both repositories. It does not install the operating system, partition disks, or configure firmware/BIOS settings. The bootstrap installs Chrome Stable from Google's official download endpoint when needed; this requires internet access and an amd64 machine.
 
 The bootstrap:
@@ -74,13 +89,9 @@ The installer can be run again to reconfigure nginx and GDM. It does not overwri
 
 Edit `config.js` to change the presentation text, launch URL, slideshow timing, and media playlist.
 
-The default launch URL starts yaPDP with a three-minute idle timeout and returns to the kiosk page:
+The installer generates `config.js`'s `launchUrl` from `IDLE_TIMEOUT` and `IDLE_REDIRECT`. The default is a three-minute timeout and a return to the kiosk welcome page. The redirect may be a relative URL (for example `/` or `/attract.html`) or an absolute HTTP(S) URL on another site. Set `IDLE_TIMEOUT=0` to disable the automatic hand-off; in that case yaPDP opens without idle parameters.
 
-```js
-launchUrl: "/yapdp/pdp11.html?idle-timeout=180&idle-redirect=/"
-```
-
-Change the timeout as needed. The corresponding idle-timeout/redirect support must be present in the yaPDP version being deployed.
+The installer updates only the `launchUrl` setting and preserves the rest of the presentation configuration. The deployed yaPDP revision must include the idle-timeout/redirect support.
 
 Put slideshow images and videos in `media/` and list them in the `media` array. See [media/README.md](media/README.md).
 
