@@ -89,15 +89,15 @@ download_chrome_with_progress() {
       --speed-time 45 --speed-limit 1024 \
       --retry 5 --retry-all-errors --retry-delay 5 --retry-max-time 360 \
       --output "$output" "$url" \
-      2> >(tee -a "$LOG_FILE" | awk 'BEGIN { RS = "\\r" } {
+      2> >(tee -a "$LOG_FILE" | awk 'BEGIN { RS = "\r" } {
         if (match($0, /[0-9]+([.][0-9]+)?%/)) {
           value = substr($0, RSTART, RLENGTH)
           sub(/%/, "", value)
-          printf "%d\\n", value
+          printf "%d\n", value
           fflush()
         }
       }' | dialog --title "yaPDP Kiosk Setup" \
-        --gauge "Downloading Google Chrome Stable...\\n\\nLive download progress" \
+        --gauge "Downloading Google Chrome Stable...\n\nLive download progress" \
         8 76 0 </dev/tty >/dev/tty 2>&1)
   else
     curl --fail --location --silent --show-error \
