@@ -371,9 +371,11 @@ fetch_git_with_progress() {
     if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]] \
        && command -v dialog >/dev/null 2>&1; then
       # Keep the entire pipeline synchronous. Process substitution here would
+      # Bound connection establishment, but do not abort slow transfers on
+      # museum networks that may throttle or temporarily pause GitHub downloads.
       # let the gauge outlive git fetch and leave stale dialogs between repos.
       if GIT_TERMINAL_PROMPT=0 git -C "$repository" \
-        -c http.lowSpeedLimit=1024 -c http.lowSpeedTime=60 \
+        -c http.connectTimeout=30 \
         fetch --progress --depth 1 origin "$ref" 2>&1 \
         | tee -a "$LOG_FILE" \
         | tr '\r' '\n' \
@@ -394,7 +396,7 @@ fetch_git_with_progress() {
       fi
     else
       if GIT_TERMINAL_PROMPT=0 git -C "$repository" \
-        -c http.lowSpeedLimit=1024 -c http.lowSpeedTime=60 \
+        -c http.connectTimeout=30 \
         fetch --progress --depth 1 origin "$ref" 2>&1 | tee -a "$LOG_FILE"; then
         return 0
       else
