@@ -7,13 +7,17 @@ set -euo pipefail
 #
 # Refs are deliberately pinned. Update them only after validating a new release.
 
-readonly YAPDP_REPO="https://github.com/amesk/yaPDP.git"
-readonly KIOSK_REPO="https://github.com/amesk/yaPDP-kiosk.git"
-readonly YAPDP_REF="6d949d18d5b335bc69effc0dda8b80bb39afb015" # idle redirect support
-readonly KIOSK_REF="557a1f622d3c8351e16da773709ec38a73607ef7" # suppress first-login and release-upgrade dialogs
+# Repository URLs are editable in the dialog or overridable through the environment.
+YAPDP_REPO_URL="${YAPDP_REPO_URL:-https://github.com/amesk/yaPDP.git}"
+KIOSK_REPO_URL="${KIOSK_REPO_URL:-https://github.com/amesk/yaPDP-kiosk.git}"
+# Keep known-good revisions pinned by default. Forks can override the refs too.
+YAPDP_REF="${YAPDP_REF:-6d949d18d5b335bc69effc0dda8b80bb39afb015}"
+KIOSK_REF="${KIOSK_REF:-557a1f622d3c8351e16da773709ec38a73607ef7}"
 readonly INSTALL_ROOT="/opt/yapdp-exhibit"
 
 KIOSK_USER="${KIOSK_USER:-yapdp-kiosk}"
+IDLE_TIMEOUT="${IDLE_TIMEOUT:-180}"
+IDLE_REDIRECT="${IDLE_REDIRECT:-/}"
 
 if [[ "$EUID" -ne 0 ]]; then
   echo "Run with sudo: sudo bash $0" >&2
@@ -46,6 +50,74 @@ if ! dpkg-query -W -f='${Status}' gdm3 2>/dev/null | grep -q "install ok install
   echo "GNOME Display Manager (gdm3) is required. Install Ubuntu Desktop with its default display manager first." >&2
   exit 1
 fi
+
+# Collect kiosk-specific settings before downloading or changing the system.
+# NONINTERACTIVE=1 skips the UI and uses environment variables/defaults.
+if [[ "${NONINTERACTIVE:-0}" != "1" && -t 0 && -t 1 ]]; then
+  if ! command -v dialog >/dev/null 2>&1; then
+    echo "Installing the dialog text UI..."
+    apt-get update
+    DEBIAN_FRONTEND=noninteractive apt-get install -y dialog
+  fi
+
+  ask_setting() {
+    local variable="$1"
+    local prompt="$2"
+    local current="$3"
+    local answer
+    if ! answer="$(dialog --stdout --title "yaPDP Museum Kiosk Setup" \
+      --inputbox "$prompt" 10 78 "$current" < /dev/tty)"; then
+      clear || true
+      echo "Installation cancelled." >&2
+      exit 1
+    fi
+    printf -v "$variable" '%s' "$answer"
+  }
+
+  ask_setting YAPDP_REPO_URL "Git repository URL for yaPDP:" "$YAPDP_REPO_URL"
+  ask_setting KIOSK_REPO_URL "Git repository URL for yaPDP-kiosk:" "$KIOSK_REPO_URL"
+  ask_setting IDLE_TIMEOUT "Visitor inactivity timeout in seconds (0 disables automatic return):" "$IDLE_TIMEOUT"
+  ask_setting IDLE_REDIRECT "URL to open after inactivity (HTTP(S) or relative URL):" "$IDLE_REDIRECT"
+
+  if ! dialog --title "Confirm kiosk installation" --yesno \
+    "yaPDP repository:\n$YAPDP_REPO_URL\n\nyaPDP-kiosk repository:\n$KIOSK_REPO_URL\n\nInactivity timeout: $IDLE_TIMEOUT seconds\nReturn URL: $IDLE_REDIRECT\n\nContinue with these settings?" 18 82 < /dev/tty; then
+    clear || true
+    echo "Installation cancelled." >&2
+    exit 1
+  fi
+  clear || true
+fi
+
+if [[ -z "$YAPDP_REPO_URL" || "$YAPDP_REPO_URL" =~ [[:space:]] ||
+      -z "$KIOSK_REPO_URL" || "$KIOSK_REPO_URL" =~ [[:space:]] ]]; then
+  echo "Repository URLs must be non-empty and contain no whitespace." >&2
+  exit 1
+fi
+if [[ -z "$YAPDP_REF" || "$YAPDP_REF" =~ [[:space:]] ||
+      -z "$KIOSK_REF" || "$KIOSK_REF" =~ [[:space:]] ]]; then
+  echo "Repository refs must be non-empty and contain no whitespace." >&2
+  exit 1
+fi
+if [[ ! "$IDLE_TIMEOUT" =~ ^[0-9]+$ ]] || (( IDLE_TIMEOUT > 2147483 )); then
+  echo "IDLE_TIMEOUT must be an integer from 0 to 2147483 seconds." >&2
+  exit 1
+fi
+python3 - "$IDLE_TIMEOUT" "$IDLE_REDIRECT" <<'PY'
+from urllib.parse import urlsplit
+import sys
+
+timeout = int(sys.argv[1])
+redirect = sys.argv[2].strip()
+if timeout == 0:
+    raise SystemExit(0)
+if not redirect or any(ord(char) < 32 for char in redirect):
+    raise SystemExit("IDLE_REDIRECT must be a non-empty URL without control characters.")
+parsed = urlsplit(redirect)
+if parsed.scheme and parsed.scheme.lower() not in ("http", "https"):
+    raise SystemExit("IDLE_REDIRECT must use HTTP(S), or be a relative URL.")
+if parsed.scheme.lower() in ("http", "https") and not parsed.netloc:
+    raise SystemExit("IDLE_REDIRECT is missing a host.")
+PY
 
 STAGE_DIR="$(mktemp -d /opt/.yapdp-exhibit.XXXXXX)"
 cleanup() { rm -rf "$STAGE_DIR"; }
@@ -106,8 +178,8 @@ fetch_pinned_repo() {
   git -C "$destination" checkout --quiet --detach FETCH_HEAD
 }
 
-fetch_pinned_repo "$KIOSK_REPO" "$KIOSK_REF" "$STAGE_DIR/yaPDP-kiosk"
-fetch_pinned_repo "$YAPDP_REPO" "$YAPDP_REF" "$STAGE_DIR/yaPDP"
+fetch_pinned_repo "$KIOSK_REPO_URL" "$KIOSK_REF" "$STAGE_DIR/yaPDP-kiosk"
+fetch_pinned_repo "$YAPDP_REPO_URL" "$YAPDP_REF" "$STAGE_DIR/yaPDP"
 
 # Keep the installed tree root-owned; the kiosk user only needs read access.
 chown -R root:root "$STAGE_DIR"
@@ -124,7 +196,8 @@ trap - EXIT
 
 echo "Repositories installed at $INSTALL_ROOT."
 echo "Starting the Ubuntu 24.04 kiosk installer..."
-KIOSK_USER="$KIOSK_USER" bash "$INSTALL_ROOT/yaPDP-kiosk/install/ubuntu-24.04.sh"
+KIOSK_USER="$KIOSK_USER" IDLE_TIMEOUT="$IDLE_TIMEOUT" IDLE_REDIRECT="$IDLE_REDIRECT" \
+  bash "$INSTALL_ROOT/yaPDP-kiosk/install/ubuntu-24.04.sh"
 
 echo
 echo "Initial setup is complete. Reboot to enter the kiosk account automatically."
