@@ -21,8 +21,8 @@ fi
 
 if ! command -v rsvg-convert >/dev/null 2>&1; then
   echo "Installing SVG renderer (librsvg2-bin)..."
-  apt-get update
-  DEBIAN_FRONTEND=noninteractive apt-get install -y librsvg2-bin
+  apt-get -o DPkg::Lock::Timeout=300 update
+  DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y librsvg2-bin
 fi
 
 mkdir -p "$THEME_DIR"
