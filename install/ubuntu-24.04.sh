@@ -331,10 +331,10 @@ section_start = None
 section_end = len(lines)
 
 for index, line in enumerate(lines):
-    if re.match(r"^\\s*\\[User\\]\\s*(?:#.*)?$", line, re.I):
+    if re.match(r"^\s*\\[User\\]\s*(?:#.*)?$", line, re.I):
         section_start = index
         for end in range(index + 1, len(lines)):
-            if re.match(r"^\\s*\\[[^]]+\\]", lines[end]):
+            if re.match(r"^\s*\\[[^]]+\\]", lines[end]):
                 section_end = end
                 break
         break
@@ -355,7 +355,7 @@ seen = set()
 updated = []
 for index, line in enumerate(lines):
     if section_start < index < section_end:
-        match = re.match(r"^\\s*(Session|SessionType|XSession)\\s*=", line)
+        match = re.match(r"^\s*(Session|SessionType|XSession)\s*=", line)
         if match:
             key = match.group(1)
             if key not in seen:
@@ -366,7 +366,7 @@ for index, line in enumerate(lines):
 
 insert_at = next(
     (i for i, line in enumerate(updated)
-     if i > section_start and re.match(r"^\\s*\\[[^]]+\\]", line)),
+     if i > section_start and re.match(r"^\s*\\[[^]]+\\]", line)),
     len(updated),
 )
 updated[insert_at:insert_at] = [
@@ -376,7 +376,7 @@ updated[insert_at:insert_at] = [
 fd, temporary = tempfile.mkstemp(prefix=path.name + ".", dir=path.parent)
 try:
     with os.fdopen(fd, "w", encoding="utf-8") as output:
-        output.write("\\n".join(updated) + "\\n")
+        output.write("\n".join(updated) + "\n")
     os.chmod(temporary, 0o644)
     os.chown(temporary, 0, 0)
     os.replace(temporary, path)
