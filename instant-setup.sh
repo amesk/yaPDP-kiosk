@@ -25,7 +25,7 @@ USAGE
     *) echo "Unknown option: $1" >&2; echo "Use --help for usage." >&2; exit 2 ;;
   esac
 done
-if [[ "$VERBOSE" == "1" ]]; then NONINTERACTIVE=1; fi
+# Verbose mode changes progress/output presentation only; keep the settings wizard.
 
 # Repository URLs and refs are editable in the dialog or overridable through the environment.
 YAPDP_REPO_URL="${YAPDP_REPO_URL:-https://github.com/amesk/yaPDP.git}"
