@@ -345,7 +345,7 @@ fetch_git_with_progress() {
         -c http.lowSpeedLimit=1024 -c http.lowSpeedTime=60 \
         fetch --progress --depth 1 origin "$ref" 2>&1 \
         | tee -a "$LOG_FILE" \
-        | tr '\\r' '\\n' \
+        | tr '\r' '\n' \
         | awk '{
             if (match($0, /[0-9]+%/)) {
               value = substr($0, RSTART, RLENGTH)
@@ -355,7 +355,7 @@ fetch_git_with_progress() {
             }
           }' \
         | dialog --title "yaPDP Museum Kiosk Setup" \
-          --gauge "Fetching $label from GitHub...\\n\\nReceiving and indexing Git objects" \
+          --gauge "Fetching $label from GitHub...\n\nReceiving and indexing Git objects" \
           8 76 0 </dev/tty >/dev/tty 2>&1; then
         return 0
       else
