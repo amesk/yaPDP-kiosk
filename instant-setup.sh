@@ -419,6 +419,10 @@ STAGE_DIR="$(mktemp -d /opt/.yapdp-exhibit.XXXXXX)"
 
 show_phase 10 "Checking and installing Google Chrome..."
 
+# Keep the Chrome package cache path available for cleanup after the
+# executable has passed its post-installation version check.
+CHROME_CACHE_DIR="/var/cache/yapdp-kiosk/downloads"
+
 # Prefer the official Google Chrome Stable build for a predictable exhibit
 # runtime. If it is absent, install Google's signed Debian package. Chromium
 # may already be present, but is not silently substituted for Chrome.
@@ -437,7 +441,6 @@ if ! command -v google-chrome-stable >/dev/null 2>&1 \
 
   # Keep the download outside the temporary staging directory so an interrupted
   # bootstrap can resume it on the next run instead of downloading from zero.
-  CHROME_CACHE_DIR="/var/cache/yapdp-kiosk/downloads"
   install -d -m 0750 "$CHROME_CACHE_DIR"
   CHROME_DEB="$CHROME_CACHE_DIR/google-chrome-stable_current_amd64.deb"
   CHROME_DEB_PART="${CHROME_DEB}.part"
@@ -473,6 +476,14 @@ fi
 if ! "$CHROME_BIN" --version; then
   echo "Google Chrome is installed but failed its version check." >&2
   exit 1
+fi
+
+# The package is no longer needed once Chrome is installed and its executable
+# has passed the version check. Keep the directory, but remove cached .deb and
+# partial downloads. On any earlier failure these files remain available for
+# the next installer run.
+if [[ -d "$CHROME_CACHE_DIR" ]]; then
+  find "$CHROME_CACHE_DIR" -mindepth 1 -maxdepth 1 -type f -delete
 fi
 
 show_phase 20 "Google Chrome is ready. Preparing repository download..."
