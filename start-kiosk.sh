@@ -62,17 +62,6 @@ disable_gnome_shortcuts() {
   done
 }
 
-# Keep the compositor background visually aligned with the exhibit's
-# black presentation palette. Apply this from the live kiosk session so the
-# settings are written to the kiosk user's dconf database.
-set_kiosk_background() {
-  gsettings set org.gnome.desktop.background color-shading-type 'solid'
-  gsettings set org.gnome.desktop.background primary-color '#000000'
-  gsettings set org.gnome.desktop.background secondary-color '#000000'
-  gsettings set org.gnome.desktop.background picture-uri ''
-  gsettings set org.gnome.desktop.background picture-uri-dark ''
-}
-
 # A public exhibit must not blank or lock the kiosk session while idle.
 # Apply these per-user GNOME settings from the live graphical session so they
 # are written to this account's dconf database, not the administrator's.
@@ -83,7 +72,6 @@ disable_idle_lock() {
 }
 
 disable_gnome_shortcuts
-set_kiosk_background
 disable_idle_lock
 
 # Chrome's kiosk flag is presentation, not process supervision. If a visitor
