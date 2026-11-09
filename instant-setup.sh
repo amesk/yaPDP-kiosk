@@ -12,12 +12,13 @@ YAPDP_REPO_URL="${YAPDP_REPO_URL:-https://github.com/amesk/yaPDP.git}"
 KIOSK_REPO_URL="${KIOSK_REPO_URL:-https://github.com/amesk/yaPDP-kiosk.git}"
 # Keep known-good revisions pinned by default. Forks can override the refs too.
 YAPDP_REF="${YAPDP_REF:-6d949d18d5b335bc69effc0dda8b80bb39afb015}"
-KIOSK_REF="${KIOSK_REF:-dd8695cec752018cb3d9b497b73b2638743d6719}"
+KIOSK_REF="${KIOSK_REF:-abc911a2b77b87915f255b0e19600c1c0b97b7c5}"
 readonly INSTALL_ROOT="/opt/yapdp-exhibit"
 
 KIOSK_USER="${KIOSK_USER:-yapdp-kiosk}"
 IDLE_TIMEOUT="${IDLE_TIMEOUT:-180}"
 IDLE_REDIRECT="${IDLE_REDIRECT:-/}"
+INSTALL_PLYMOUTH="${INSTALL_PLYMOUTH:-0}"
 
 if [[ "$EUID" -ne 0 ]]; then
   echo "Run with sudo: sudo bash $0" >&2
@@ -79,6 +80,19 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -t 0 && -t 1 ]]; then
   ask_setting IDLE_TIMEOUT "Visitor inactivity timeout in seconds (0 disables automatic return):" "$IDLE_TIMEOUT"
   ask_setting IDLE_REDIRECT "URL to open after inactivity (HTTP(S) or relative URL):" "$IDLE_REDIRECT"
 
+  if dialog --title "Optional boot splash" --yesno \\
+    "Install the yaPDP PDP-11/70 Plymouth boot splash?\\n\\nThis changes the system boot theme and rebuilds initramfs.\\nYou can also install it later from plymouth/install.sh." 11 78 < /dev/tty; then
+    INSTALL_PLYMOUTH=1
+  else
+    dialog_status=$?
+    if [[ "$dialog_status" -ne 1 ]]; then
+      clear || true
+      echo "Installation cancelled." >&2
+      exit 1
+    fi
+    INSTALL_PLYMOUTH=0
+  fi
+
   if ! dialog --title "Confirm kiosk installation" --yesno \
     "yaPDP repository:\n$YAPDP_REPO_URL\n\nyaPDP-kiosk repository:\n$KIOSK_REPO_URL\n\nInactivity timeout: $IDLE_TIMEOUT seconds\nReturn URL: $IDLE_REDIRECT\n\nContinue with these settings?" 18 82 < /dev/tty; then
     clear || true
@@ -88,6 +102,10 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -t 0 && -t 1 ]]; then
   clear || true
 fi
 
+if [[ "$INSTALL_PLYMOUTH" != "0" && "$INSTALL_PLYMOUTH" != "1" ]]; then
+  echo "INSTALL_PLYMOUTH must be 0 (disabled) or 1 (enabled)." >&2
+  exit 1
+fi
 if [[ -z "$YAPDP_REPO_URL" || "$YAPDP_REPO_URL" =~ [[:space:]] ||
       -z "$KIOSK_REPO_URL" || "$KIOSK_REPO_URL" =~ [[:space:]] ]]; then
   echo "Repository URLs must be non-empty and contain no whitespace." >&2
@@ -198,6 +216,16 @@ echo "Repositories installed at $INSTALL_ROOT."
 echo "Starting the Ubuntu 24.04 kiosk installer..."
 KIOSK_USER="$KIOSK_USER" IDLE_TIMEOUT="$IDLE_TIMEOUT" IDLE_REDIRECT="$IDLE_REDIRECT" \
   bash "$INSTALL_ROOT/yaPDP-kiosk/install/ubuntu-24.04.sh"
+
+if [[ "$INSTALL_PLYMOUTH" == "1" ]]; then
+  echo
+  echo "Installing the optional yaPDP Plymouth boot splash..."
+  if ! bash "$INSTALL_ROOT/yaPDP-kiosk/plymouth/install.sh"; then
+    echo "WARNING: Plymouth installation failed. The kiosk itself is installed; boot splash was not enabled." >&2
+    echo "You can inspect the error and retry later with:" >&2
+    echo "  sudo bash $INSTALL_ROOT/yaPDP-kiosk/plymouth/install.sh" >&2
+  fi
+fi
 
 echo
 echo "Initial setup is complete. Reboot to enter the kiosk account automatically."
