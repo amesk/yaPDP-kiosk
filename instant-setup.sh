@@ -7,6 +7,26 @@ set -euo pipefail
 #
 # Refs are deliberately pinned. Update them only after validating a new release.
 
+# -v / --verbose disables the wizard and progress UI, showing command output.
+VERBOSE=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -v|--verbose) VERBOSE=1; shift ;;
+    -h|--help)
+      cat <<'USAGE'
+Usage: sudo bash instant-setup.sh [-v|--verbose]
+
+  -v, --verbose  Plain console mode: no dialog screens or spinners;
+                 show command output and use environment/default settings.
+  -h, --help     Show this help.
+USAGE
+      exit 0
+      ;;
+    *) echo "Unknown option: $1" >&2; echo "Use --help for usage." >&2; exit 2 ;;
+  esac
+done
+if [[ "$VERBOSE" == "1" ]]; then NONINTERACTIVE=1; fi
+
 # Repository URLs and refs are editable in the dialog or overridable through the environment.
 YAPDP_REPO_URL="${YAPDP_REPO_URL:-https://github.com/amesk/yaPDP.git}"
 KIOSK_REPO_URL="${KIOSK_REPO_URL:-https://github.com/amesk/yaPDP-kiosk.git}"
@@ -30,7 +50,11 @@ LOG_DIR="/var/log/yapdp-kiosk"
 install -d -m 0750 "$LOG_DIR"
 LOG_FILE="$LOG_DIR/bootstrap-$(date +%Y%m%d-%H%M%S-%N).log"
 export YAPDP_INSTALL_LOG="$LOG_FILE"
-exec > >(tee -a "$LOG_FILE" >/dev/null) 2>&1
+if [[ "$VERBOSE" == "1" ]]; then
+  exec > >(tee -a "$LOG_FILE" >/dev/tty) 2>&1
+else
+  exec > >(tee -a "$LOG_FILE" >/dev/null) 2>&1
+fi
 echo "===== yaPDP kiosk bootstrap started: $(date --iso-8601=seconds) ====="
 echo "Log file: $LOG_FILE"
 
@@ -43,7 +67,15 @@ cleanup() {
     # Do not let the EXIT trap run a second time after handling SIGINT.
     trap - INT TERM EXIT
 
-    if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]] \
+    if [[ "$VERBOSE" == "1" ]]; then
+      if GIT_TERMINAL_PROMPT=0 git -C "$repository" \
+        -c http.connectTimeout=30 \
+        fetch --progress --depth 1 origin "$ref"; then
+        return 0
+      else
+        status=$?
+      fi
+    elif [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]] \
        && command -v dialog >/dev/null 2>&1; then
       dialog --title "yaPDP Museum Kiosk Setup" --msgbox \
         "Installation was interrupted.\n\nNo further installation steps will be run.\n\nThe detailed log is saved at:\n$LOG_FILE" \
@@ -75,6 +107,10 @@ show_phase() {
   printf -v bar '%*s' "$filled" ''
   bar="${bar// /#}"
   printf -v bar '%-*s' "$width" "$bar"
+  if [[ "$VERBOSE" == "1" ]]; then
+    printf '[%3d%%] %s\n' "$percent" "$title"
+    return
+  fi
   printf '\033[H\033[2J\033[3J' > /dev/tty 2>/dev/null || true
   {
     printf '\n  yaPDP MUSEUM KIOSK SETUP\n\n'
@@ -88,6 +124,11 @@ show_phase() {
 run_with_spinner() {
   local message="$1"
   shift
+  if [[ "$VERBOSE" == "1" ]]; then
+    printf '==> %s\n' "$message"
+    "$@"
+    return $?
+  fi
   local pid status frame=0
   local spinner='|/-\\'
 
@@ -113,7 +154,13 @@ download_chrome_with_progress() {
   local output="$1"
   local url="$2"
 
-  if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]] \
+  if [[ "$VERBOSE" == "1" ]]; then
+    curl --fail --location --show-error --progress-bar \
+      --connect-timeout 30 --max-time 300 \
+      --speed-time 45 --speed-limit 1024 \
+      --retry 5 --retry-all-errors --retry-delay 5 --retry-max-time 900 \
+      --continue-at - --output "$output" "$url"
+  elif [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]] \
      && command -v dialog >/dev/null 2>&1; then
     # Preserve curl diagnostics in the log while converting its live progress
     # meter into the percentage stream expected by dialog --gauge.
