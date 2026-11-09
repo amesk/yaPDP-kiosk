@@ -330,15 +330,16 @@ fi
 
 fetch_git_with_progress() {
   local label="$1"
-  shift
+  local repository="$2"
+  local ref="$3"
   local attempt status=0
 
   for attempt in 1 2 3; do
     echo "Fetching $label (attempt $attempt of 3)..."
     if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]] \
        && command -v dialog >/dev/null 2>&1; then
-      if GIT_TERMINAL_PROMPT=0 git -c http.lowSpeedLimit=1024 -c http.lowSpeedTime=60 \
-        fetch --progress "$@" \
+      if GIT_TERMINAL_PROMPT=0 git -C "$repository" -c http.lowSpeedLimit=1024 -c http.lowSpeedTime=60 \
+        fetch --progress --depth 1 origin "$ref" \
         2> >(tee -a "$LOG_FILE" | awk 'BEGIN { RS = "[\\r\\n]+" } {
           if (match($0, /[0-9]+%/)) {
             value = substr($0, RSTART, RLENGTH)
@@ -354,8 +355,8 @@ fetch_git_with_progress() {
         status=$?
       fi
     else
-      if GIT_TERMINAL_PROMPT=0 git -c http.lowSpeedLimit=1024 -c http.lowSpeedTime=60 \
-        fetch --progress "$@" 2>&1; then
+      if GIT_TERMINAL_PROMPT=0 git -C "$repository" -c http.lowSpeedLimit=1024 -c http.lowSpeedTime=60 \
+        fetch --progress --depth 1 origin "$ref" 2>&1; then
         return 0
       else
         status=$?
@@ -379,7 +380,7 @@ fetch_pinned_repo() {
   local destination="$4"
   git init -q "$destination"
   git -C "$destination" remote add origin "$url"
-  fetch_git_with_progress "$label" -C "$destination" --depth 1 origin "$ref"
+  fetch_git_with_progress "$label" "$destination" "$ref"
   git -C "$destination" checkout --quiet --detach FETCH_HEAD
 }
 
