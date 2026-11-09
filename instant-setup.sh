@@ -80,7 +80,11 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -t 0 && -t 1 ]]; then
   ask_setting IDLE_TIMEOUT "Visitor inactivity timeout in seconds (0 disables automatic return):" "$IDLE_TIMEOUT"
   ask_setting IDLE_REDIRECT "URL to open after inactivity (HTTP(S) or relative URL):" "$IDLE_REDIRECT"
 
-  if dialog --title "Optional boot splash" --yesno \
+  PLYMOUTH_DEFAULT="--defaultno"
+  if [[ "$INSTALL_PLYMOUTH" == "1" ]]; then
+    PLYMOUTH_DEFAULT="--defaultyes"
+  fi
+  if dialog "$PLYMOUTH_DEFAULT" --title "Optional boot splash" --yesno \
     "Install the yaPDP PDP-11/70 Plymouth boot splash?\n\nThis changes the system boot theme and rebuilds initramfs.\nYou can also install it later from plymouth/install.sh." 11 78 < /dev/tty; then
     INSTALL_PLYMOUTH=1
   else
@@ -94,7 +98,7 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -t 0 && -t 1 ]]; then
   fi
 
   if ! dialog --title "Confirm kiosk installation" --yesno \
-    "yaPDP repository:\n$YAPDP_REPO_URL\n\nyaPDP-kiosk repository:\n$KIOSK_REPO_URL\n\nInactivity timeout: $IDLE_TIMEOUT seconds\nReturn URL: $IDLE_REDIRECT\n\nContinue with these settings?" 18 82 < /dev/tty; then
+    "yaPDP repository:\n$YAPDP_REPO_URL\n\nyaPDP-kiosk repository:\n$KIOSK_REPO_URL\n\nInactivity timeout: $IDLE_TIMEOUT seconds\nReturn URL: $IDLE_REDIRECT\nPlymouth boot splash: $([[ "$INSTALL_PLYMOUTH" == "1" ]] && echo "Yes" || echo "No")\n\nContinue with these settings?" 19 82 < /dev/tty; then
     clear || true
     echo "Installation cancelled." >&2
     exit 1
