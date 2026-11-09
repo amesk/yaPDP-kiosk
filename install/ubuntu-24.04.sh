@@ -142,6 +142,77 @@ if ! nginx -t; then
   exit 1
 fi
 
+# Do not offer an in-place upgrade to a newer Ubuntu release on the public kiosk.
+# This controls release-upgrade notifications only; normal package/security updates remain available.
+RELEASE_UPGRADES_CONFIG="/etc/update-manager/release-upgrades"
+if [[ ! -f "$RELEASE_UPGRADES_CONFIG" ]]; then
+  echo "Expected Ubuntu release-upgrades configuration was not found: $RELEASE_UPGRADES_CONFIG" >&2
+  exit 1
+fi
+python3 - "$RELEASE_UPGRADES_CONFIG" <<'PY'
+from pathlib import Path
+import re
+import shutil
+import sys
+import tempfile
+
+path = Path(sys.argv[1])
+original = path.read_text()
+lines = original.splitlines()
+section_start = None
+section_end = len(lines)
+
+for index, line in enumerate(lines):
+    if re.match(r"^\\s*\\[DEFAULT\\]\\s*(?:#.*)?$", line, re.I):
+        section_start = index
+        for end in range(index + 1, len(lines)):
+            if re.match(r"^\\s*\\[[^]]+\\]", lines[end]):
+                section_end = end
+                break
+        break
+
+if section_start is None:
+    if lines and lines[-1].strip():
+        lines.append("")
+    lines.append("[DEFAULT]")
+    section_start = len(lines) - 1
+    section_end = len(lines)
+
+updated = []
+seen_prompt = False
+for index, line in enumerate(lines):
+    if section_start < index < section_end and re.match(r"^\\s*#?\\s*Prompt\\s*=", line, re.I):
+        if not seen_prompt:
+            updated.append("Prompt=never")
+            seen_prompt = True
+        else:
+            updated.append("# Disabled duplicate setting by yaPDP kiosk installer: " + line.lstrip("# "))
+        continue
+    updated.append(line)
+
+if not seen_prompt:
+    insert_at = next(
+        (i for i, line in enumerate(updated) if i > section_start and re.match(r"^\\s*\\[[^]]+\\]", line)),
+        len(updated),
+    )
+    updated.insert(insert_at, "Prompt=never")
+
+content = "\\n".join(updated) + "\\n"
+if content != original:
+    backup = path.with_name(path.name + ".yapdp-kiosk.bak")
+    if not backup.exists():
+        shutil.copy2(path, backup)
+    fd, temporary = tempfile.mkstemp(prefix=path.name + ".", dir=path.parent)
+    try:
+        with open(fd, "w", encoding="utf-8") as output:
+            output.write(content)
+        shutil.copystat(path, temporary)
+        Path(temporary).replace(path)
+    finally:
+        if Path(temporary).exists():
+            Path(temporary).unlink()
+PY
+
 # Keep the launcher scoped to the kiosk account, not every desktop user.
 rm -f "$OLD_AUTOSTART"
 # The parent may already exist (for example, if it was created by a root
