@@ -169,7 +169,7 @@ download_chrome_with_progress() {
       # previous process-substitution approach could leave the gauge at 0%.
       if curl "${curl_args[@]}" "$url" 2>&1 \
         | tee -a "$LOG_FILE" \
-        | tr '\\r' '\\n' \
+        | tr '\r' '\n' \
         | awk '{
             if (match($0, /[0-9]+([.][0-9]+)?%/)) {
               value = substr($0, RSTART, RLENGTH)
