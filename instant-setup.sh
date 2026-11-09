@@ -80,7 +80,25 @@ if ! dpkg-query -W -f='${Status}' gdm3 2>/dev/null | grep -q "install ok install
   exit 1
 fi
 
-show_phase 5 "Collecting installation settings..."
+show_welcome() {
+  [[ "${NONINTERACTIVE:-0}" == "1" || ! -r /dev/tty ]] && return 0
+  clear > /dev/tty 2>/dev/null || true
+  {
+    printf '\\n  yaPDP MUSEUM KIOSK SETUP\\n\\n'
+    printf '  This installer will prepare this Ubuntu 24.04 computer\\n'
+    printf '  as a dedicated, full-screen museum exhibit.\\n\\n'
+    printf '  It will configure:\\n'
+    printf '    • Google Chrome and the GNOME Kiosk session\\n'
+    printf '    • yaPDP and the kiosk presentation files\\n'
+    printf '    • A local web server and automatic kiosk login\\n\\n'
+    printf '  Existing files under /opt/yapdp-exhibit will not be overwritten.\\n'
+    printf '  Detailed installation output will be saved to:\\n  %s\\n\\n' "$LOG_FILE"
+    printf '  Press Enter to configure the installation, or Ctrl+C to cancel. '
+  } > /dev/tty
+  IFS= read -r _ < /dev/tty
+}
+
+show_welcome
 
 # Collect kiosk-specific settings before downloading or changing the system.
 # NONINTERACTIVE=1 skips the UI and uses environment variables/defaults.
@@ -177,7 +195,7 @@ STAGE_DIR="$(mktemp -d /opt/.yapdp-exhibit.XXXXXX)"
 cleanup() { rm -rf "$STAGE_DIR"; }
 trap cleanup EXIT
 
-show_phase 15 "Checking and installing Google Chrome..."
+show_phase 10 "Checking and installing Google Chrome..."
 
 # Prefer the official Google Chrome Stable build for a predictable exhibit
 # runtime. If it is absent, install Google's signed Debian package. Chromium
@@ -219,7 +237,7 @@ if ! "$CHROME_BIN" --version; then
   exit 1
 fi
 
-if ! command -v git >/dev/null 2>&1; then
+show_phase 30 "Google Chrome is ready. Preparing repository download..."\n\nif ! command -v git >/dev/null 2>&1; then
   apt-get update
   DEBIAN_FRONTEND=noninteractive apt-get install -y git ca-certificates
 fi
@@ -234,7 +252,7 @@ fetch_pinned_repo() {
   git -C "$destination" checkout --quiet --detach FETCH_HEAD
 }
 
-show_phase 35 "Downloading pinned yaPDP and kiosk repositories..."
+show_phase 30 "Downloading pinned yaPDP and kiosk repositories..."
 fetch_pinned_repo "$KIOSK_REPO_URL" "$KIOSK_REF" "$STAGE_DIR/yaPDP-kiosk"
 fetch_pinned_repo "$YAPDP_REPO_URL" "$YAPDP_REF" "$STAGE_DIR/yaPDP"
 
@@ -251,15 +269,15 @@ fi
 mv "$STAGE_DIR" "$INSTALL_ROOT"
 trap - EXIT
 
-show_phase 55 "Preparing the kiosk installation..."
+show_phase 50 "Repositories downloaded. Preparing kiosk installation..."
 echo "Repositories installed at $INSTALL_ROOT."
-show_phase 70 "Installing GNOME Kiosk, nginx and automatic login..."
+show_phase 55 "Installing GNOME Kiosk, nginx and automatic login..."
 echo "Starting the Ubuntu 24.04 kiosk installer..."
 KIOSK_USER="$KIOSK_USER" IDLE_TIMEOUT="$IDLE_TIMEOUT" IDLE_REDIRECT="$IDLE_REDIRECT" \
   bash "$INSTALL_ROOT/yaPDP-kiosk/install/ubuntu-24.04.sh"
 
 if [[ "$INSTALL_PLYMOUTH" == "1" ]]; then
-  show_phase 88 "Installing the optional Plymouth boot splash..."
+  show_phase 97 "Installing the optional Plymouth boot splash..."
   echo
   echo "Installing the optional yaPDP Plymouth boot splash..."
   if ! bash "$INSTALL_ROOT/yaPDP-kiosk/plymouth/install.sh"; then
