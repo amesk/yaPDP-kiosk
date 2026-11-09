@@ -34,6 +34,39 @@ exec > >(tee -a "$LOG_FILE" >/dev/null) 2>&1
 echo "===== yaPDP kiosk bootstrap started: $(date --iso-8601=seconds) ====="
 echo "Log file: $LOG_FILE"
 
+STAGE_DIR=""
+
+cleanup() {
+  local reason="${1:-exit}"
+
+  if [[ "$reason" == "interrupt" ]]; then
+    # Do not let the EXIT trap run a second time after handling SIGINT.
+    trap - INT TERM EXIT
+
+    if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]] \
+       && command -v dialog >/dev/null 2>&1; then
+      dialog --title "yaPDP Museum Kiosk Setup" --msgbox \
+        "Installation was interrupted.\n\nNo further installation steps will be run.\n\nThe detailed log is saved at:\n$LOG_FILE" \
+        10 78 </dev/tty >/dev/tty 2>&1 || true
+      clear >/dev/tty 2>&1 || printf '\033[H\033[2J\033[3J' > /dev/tty 2>/dev/null || true
+    else
+      printf '\nInstallation interrupted. Log: %s\n' "$LOG_FILE" > /dev/tty 2>/dev/null || true
+    fi
+
+    if [[ -n "${STAGE_DIR:-}" && -d "$STAGE_DIR" ]]; then
+      rm -rf -- "$STAGE_DIR"
+    fi
+    exit 130
+  fi
+
+  if [[ -n "${STAGE_DIR:-}" && -d "$STAGE_DIR" ]]; then
+    rm -rf -- "$STAGE_DIR"
+  fi
+}
+
+trap 'cleanup interrupt' INT
+trap cleanup EXIT
+
 show_phase() {
   local percent="$1" title="$2"
   local width=32 filled empty bar
@@ -260,8 +293,6 @@ if parsed.scheme.lower() in ("http", "https") and not parsed.netloc:
 PY
 
 STAGE_DIR="$(mktemp -d /opt/.yapdp-exhibit.XXXXXX)"
-cleanup() { rm -rf "$STAGE_DIR"; }
-trap cleanup EXIT
 
 show_phase 10 "Checking and installing Google Chrome..."
 
