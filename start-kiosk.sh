@@ -62,7 +62,17 @@ disable_gnome_shortcuts() {
   done
 }
 
+# A public exhibit must not blank or lock the kiosk session while idle.
+# Apply these per-user GNOME settings from the live graphical session so they
+# are written to this account's dconf database, not the administrator's.
+disable_idle_lock() {
+  gsettings set org.gnome.desktop.screensaver lock-enabled false
+  gsettings set org.gnome.desktop.screensaver idle-activation-enabled false
+  gsettings set org.gnome.desktop.session idle-delay uint32 0
+}
+
 disable_gnome_shortcuts
+disable_idle_lock
 
 # Chrome's kiosk flag is presentation, not process supervision. If a visitor
 # closes it (Alt+F4, Ctrl+Q, etc.), relaunch it instead of leaving the desktop
