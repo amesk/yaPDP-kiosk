@@ -69,9 +69,9 @@ yapdp_phase 15 "Installing GNOME Kiosk session components..."
 # with a browser autostart entry. This prevents the desktop from being exposed
 # when the browser process exits.
 if ! dpkg-query -W -f='${Status}' gnome-kiosk-script-session 2>/dev/null | grep -q "install ok installed"; then
-  apt-get -o DPkg::Lock::Timeout=300 update
+  yapdp_run_with_spinner "Refreshing Ubuntu package lists" apt-get -o DPkg::Lock::Timeout=300 update
 fi
-DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y gnome-kiosk gnome-kiosk-script-session
+yapdp_run_with_spinner "Installing GNOME Kiosk session components" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y gnome-kiosk gnome-kiosk-script-session
 
 KIOSK_WAYLAND_SESSION="/usr/share/wayland-sessions/gnome-kiosk-script-wayland.desktop"
 if [[ ! -x /usr/bin/gnome-kiosk-script || ! -f "$KIOSK_WAYLAND_SESSION" ]]; then
@@ -129,7 +129,7 @@ yapdp_phase 35 "Configuring yaPDP launch URL and web server..."
 
 if ! command -v nginx >/dev/null 2>&1; then
   apt-get -o DPkg::Lock::Timeout=300 update
-  DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y nginx
+  yapdp_run_with_spinner "Installing nginx web server" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y nginx
 fi
 
 yapdp_phase 55 "Preparing the dedicated kiosk account..."
