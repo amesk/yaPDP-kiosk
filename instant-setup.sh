@@ -91,7 +91,7 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]] &&
     printf '  Package-manager details are being saved to:\n  %s\n' "$LOG_FILE"
   } > /dev/tty
 
-  if ! { apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dialog; }; then
+  if ! { apt-get -o DPkg::Lock::Timeout=300 update && DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y dialog; }; then
     {
       printf '\n  ERROR: Could not install the dialog interface.\n'
       printf '  The installer cannot continue interactively.\n\n'
@@ -218,8 +218,8 @@ if ! command -v google-chrome-stable >/dev/null 2>&1 \
   fi
 
   echo "Google Chrome Stable is not installed; installing the official Google .deb package."
-  apt-get update
-  DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl
+  apt-get -o DPkg::Lock::Timeout=300 update
+  DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y ca-certificates curl
 
   CHROME_DEB="$STAGE_DIR/google-chrome-stable_current_amd64.deb"
   curl --fail --location --silent --show-error \
@@ -232,7 +232,7 @@ if ! command -v google-chrome-stable >/dev/null 2>&1 \
     exit 1
   fi
 
-  DEBIAN_FRONTEND=noninteractive apt-get install -y "$CHROME_DEB"
+  DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y "$CHROME_DEB"
 fi
 
 CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || true)"
@@ -248,8 +248,8 @@ fi
 show_phase 20 "Google Chrome is ready. Preparing repository download..."
 
 if ! command -v git >/dev/null 2>&1; then
-  apt-get update
-  DEBIAN_FRONTEND=noninteractive apt-get install -y git ca-certificates
+  apt-get -o DPkg::Lock::Timeout=300 update
+  DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y git ca-certificates
 fi
 
 fetch_pinned_repo() {
