@@ -56,7 +56,7 @@ run_with_spinner() {
   local message="$1"
   shift
   local pid status frame=0
-  local spinner='|/-\'
+  local spinner='|/-\\'
 
   ("$@") &
   pid=$!
@@ -74,6 +74,38 @@ run_with_spinner() {
   fi
   printf '\r\033[K' > /dev/tty 2>/dev/null || true
   return "$status"
+}
+
+download_chrome_with_progress() {
+  local output="$1"
+  local url="$2"
+
+  if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]] \
+     && command -v dialog >/dev/null 2>&1; then
+    # Preserve curl diagnostics in the log while converting its live progress
+    # meter into the percentage stream expected by dialog --gauge.
+    curl --fail --location --show-error --progress-bar \
+      --connect-timeout 30 --max-time 300 \
+      --speed-time 45 --speed-limit 1024 \
+      --retry 5 --retry-all-errors --retry-delay 5 --retry-max-time 360 \
+      --output "$output" "$url" \
+      2> >(tee -a "$LOG_FILE" | awk 'BEGIN { RS = "\\r" } {
+        if (match($0, /[0-9]+([.][0-9]+)?%/)) {
+          value = substr($0, RSTART, RLENGTH)
+          sub(/%/, "", value)
+          printf "%d\\n", value
+          fflush()
+        }
+      }' | dialog --title "yaPDP Kiosk Setup" \
+        --gauge "Downloading Google Chrome Stable...\\n\\nLive download progress" \
+        8 76 0 </dev/tty >/dev/tty 2>&1)
+  else
+    curl --fail --location --silent --show-error \
+      --connect-timeout 30 --max-time 300 \
+      --speed-time 45 --speed-limit 1024 \
+      --retry 5 --retry-all-errors --retry-delay 5 --retry-max-time 360 \
+      --output "$output" "$url"
+  fi
 }
 
 trap 'status=$?; line=$LINENO; command=$BASH_COMMAND; echo "ERROR: exit $status at line $line: $command"; echo "Installation log: $LOG_FILE"; if [[ -r /dev/tty && -w /dev/tty ]] && command -v dialog >/dev/null 2>&1; then dialog --title "yaPDP Kiosk Setup — Error" --msgbox "Installation failed (exit code $status).\n\nDetailed log:\n$LOG_FILE" 10 78 </dev/tty >/dev/tty 2>&1 || true; else echo "Installation failed. Log: $LOG_FILE" >&2; fi' ERR
@@ -252,11 +284,7 @@ if ! command -v google-chrome-stable >/dev/null 2>&1 \
   CHROME_DEB="$STAGE_DIR/google-chrome-stable_current_amd64.deb"
   CHROME_DEB_PART="${CHROME_DEB}.part"
   rm -f "$CHROME_DEB_PART"
-  run_with_spinner "Downloading Google Chrome Stable (automatic retries enabled)" curl --fail --location --silent --show-error \
-    --connect-timeout 30 --max-time 300 \
-    --speed-time 45 --speed-limit 1024 \
-    --retry 5 --retry-all-errors --retry-delay 5 --retry-max-time 360 \
-    --output "$CHROME_DEB_PART" \
+  download_chrome_with_progress "$CHROME_DEB_PART" \
     "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb"
   mv "$CHROME_DEB_PART" "$CHROME_DEB"
 
