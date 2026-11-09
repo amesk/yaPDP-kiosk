@@ -1,0 +1,120 @@
+# yaPDP PDP-11/70 front panel theme.
+# panel.png and LED images are rendered from the adjacent SVG sources by install.sh.
+
+Window.SetBackgroundTopColor(0.012, 0.020, 0.028);
+Window.SetBackgroundBottomColor(0.002, 0.005, 0.009);
+
+panel_original = Image("panel.png");
+green_original = Image("led-green.png");
+amber_original = Image("led-amber.png");
+bar_original = Image("bar-fill.png");
+
+screen_w = Window.GetWidth();
+screen_h = Window.GetHeight();
+
+# Fit the panel within the available display while leaving breathing room.
+scale_w = (screen_w * 0.90) / panel_original.GetWidth();
+scale_h = (screen_h * 0.64) / panel_original.GetHeight();
+scale = scale_w;
+if (scale_h < scale_w) scale = scale_h;
+if (scale > 1.0) scale = 1.0;
+
+panel = panel_original.Scale(panel_original.GetWidth() * scale,
+                             panel_original.GetHeight() * scale);
+green_led = green_original.Scale(green_original.GetWidth() * scale,
+                                 green_original.GetHeight() * scale);
+amber_led = amber_original.Scale(amber_original.GetWidth() * scale,
+                                 amber_original.GetHeight() * scale);
+bar_fill = bar_original.Scale(bar_original.GetWidth() * scale,
+                              bar_original.GetHeight() * scale);
+
+panel_x = (screen_w - panel.GetWidth()) / 2;
+panel_y = (screen_h - panel.GetHeight()) / 2 - (screen_h * 0.025);
+
+panel_sprite = Sprite(panel);
+panel_sprite.SetPosition(panel_x, panel_y, 0);
+
+# The panel artwork has twelve recessed indicator wells at y=206.
+# Their x positions are expressed in source-art coordinates.
+led_sprites = [];
+for (i = 0; i < 12; i++) {
+    led_sprites[i] = Sprite(green_led);
+    led_sprites[i].SetPosition(panel_x + (572 + i * 58) * scale,
+                               panel_y + 197 * scale, 10);
+    led_sprites[i].SetOpacity(0.12);
+}
+
+activity_a = Sprite(amber_led);
+activity_b = Sprite(amber_led);
+activity_a.SetPosition(panel_x + 1270 * scale, panel_y + 197 * scale, 11);
+activity_b.SetPosition(panel_x + 1310 * scale, panel_y + 197 * scale, 11);
+activity_a.SetOpacity(0.0);
+activity_b.SetOpacity(0.0);
+
+# Progress bar sits in the lower instrument strip.
+bar_sprite = Sprite();
+bar_x = panel_x + 96 * scale;
+bar_y = panel_y + 315 * scale;
+bar_sprite.SetPosition(bar_x, bar_y, 12);
+bar_sprite.SetOpacity(0.95);
+
+boot_progress = 0.0;
+frame = 0;
+message_sprite = Sprite();
+message_sprite.SetPosition(0, screen_h - 42, 100);
+status_image = Image.Text("SYSTEM INITIALIZING", 0.48, 0.66, 0.66);
+message_sprite.SetImage(status_image);
+message_sprite.SetX((screen_w - status_image.GetWidth()) / 2);
+
+fun update_indicators() {
+    lit = Math.Int(boot_progress * 12);
+    for (i = 0; i < 12; i++) {
+        if (i < lit)
+            led_sprites[i].SetOpacity(1.0);
+        else
+            led_sprites[i].SetOpacity(0.12);
+    }
+}
+
+fun refresh_callback() {
+    frame++;
+    # Small activity flicker gives the panel life even when the boot manager
+    # has not reported a progress update yet.
+    if (frame % 2 == 0) {
+        activity_a.SetOpacity(0.18 + ((frame / 2) % 4) * 0.18);
+        activity_b.SetOpacity(0.12 + ((frame / 3) % 3) * 0.22);
+    }
+    update_indicators();
+}
+
+fun progress_callback(duration, progress) {
+    boot_progress = progress;
+    width = Math.Int(bar_original.GetWidth() * scale * progress);
+    if (width > 0) {
+        partial_bar = bar_original.Scale(width, bar_original.GetHeight() * scale);
+        bar_sprite.SetImage(partial_bar);
+    }
+    update_indicators();
+}
+
+fun message_callback(text) {
+    status_image = Image.Text(text, 0.48, 0.66, 0.66);
+    message_sprite.SetImage(status_image);
+    message_sprite.SetX((screen_w - status_image.GetWidth()) / 2);
+}
+
+fun display_password_callback(prompt, bullets) {
+    text = prompt + "  ";
+    for (i = 0; i < bullets; i++) text = text + "*";
+    message_callback(text);
+}
+
+fun display_normal_callback() {
+    message_callback("SYSTEM INITIALIZING");
+}
+
+Plymouth.SetRefreshFunction(refresh_callback);
+Plymouth.SetBootProgressFunction(progress_callback);
+Plymouth.SetMessageFunction(message_callback);
+Plymouth.SetDisplayPasswordFunction(display_password_callback);
+Plymouth.SetDisplayNormalFunction(display_normal_callback);
