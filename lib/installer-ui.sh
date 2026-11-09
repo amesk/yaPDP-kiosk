@@ -36,11 +36,17 @@ yapdp_log_error() {
 
 yapdp_phase() {
   local percent="$1" title="$2"
-  echo "[$percent%] $title"
-  if [[ -t 0 && -t 1 && -r /dev/tty ]] && command -v dialog >/dev/null 2>&1; then
-    dialog --title "yaPDP Museum Kiosk Setup" --infobox \
-      "$title\n\nOverall progress: $percent%" 8 76 < /dev/tty || true
-  else
-    printf '[%s%%] %s\n' "$percent" "$title" > /dev/tty 2>/dev/null || true
-  fi
+  local width=32 filled empty bar
+  filled=$((percent * width / 100))
+  empty=$((width - filled))
+  printf -v bar '%*s' "$filled" ''
+  bar="${bar// /#}"
+  printf -v bar '%-*s' "$width" "$bar"
+  printf '\033[H\033[2J\033[3J' > /dev/tty 2>/dev/null || true
+  {
+    printf '\n  yaPDP MUSEUM KIOSK SETUP\n\n'
+    printf '  %s\n\n' "$title"
+    printf '  [%s] %3d%%\n\n' "$bar" "$percent"
+    printf '  Detailed output is being saved to:\n  %s\n' "${LOG_FILE:-${YAPDP_INSTALL_LOG:-/var/log/yapdp-kiosk}}"
+  } > /dev/tty 2>/dev/null || echo "[$percent%] $title"
 }
