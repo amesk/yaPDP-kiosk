@@ -80,8 +80,8 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -t 0 && -t 1 ]]; then
   ask_setting IDLE_TIMEOUT "Visitor inactivity timeout in seconds (0 disables automatic return):" "$IDLE_TIMEOUT"
   ask_setting IDLE_REDIRECT "URL to open after inactivity (HTTP(S) or relative URL):" "$IDLE_REDIRECT"
 
-  if dialog --title "Optional boot splash" --yesno \\
-    "Install the yaPDP PDP-11/70 Plymouth boot splash?\\n\\nThis changes the system boot theme and rebuilds initramfs.\\nYou can also install it later from plymouth/install.sh." 11 78 < /dev/tty; then
+  if dialog --title "Optional boot splash" --yesno \
+    "Install the yaPDP PDP-11/70 Plymouth boot splash?\n\nThis changes the system boot theme and rebuilds initramfs.\nYou can also install it later from plymouth/install.sh." 11 78 < /dev/tty; then
     INSTALL_PLYMOUTH=1
   else
     dialog_status=$?
