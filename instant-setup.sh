@@ -145,39 +145,63 @@ run_with_spinner() {
 download_chrome_with_progress() {
   local output="$1"
   local url="$2"
+  local attempt status=0
+  local -a curl_args=(
+    --fail --location --show-error --progress-bar
+    --connect-timeout 60
+    --speed-time 90 --speed-limit 1024
+    --continue-at - --output "$output"
+  )
 
-  if [[ "$VERBOSE" == "1" ]]; then
-    curl --fail --location --show-error --progress-bar \
-      --connect-timeout 30 --max-time 300 \
-      --speed-time 45 --speed-limit 1024 \
-      --retry 5 --retry-all-errors --retry-delay 5 --retry-max-time 900 \
-      --continue-at - --output "$output" "$url"
-  elif [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]] \
-     && command -v dialog >/dev/null 2>&1; then
-    # Preserve curl diagnostics in the log while converting its live progress
-    # meter into the percentage stream expected by dialog --gauge.
-    curl --fail --location --show-error --progress-bar \
-      --connect-timeout 30 --max-time 300 \
-      --speed-time 45 --speed-limit 1024 \
-      --retry 5 --retry-all-errors --retry-delay 5 --retry-max-time 900 \
-      --continue-at - --output "$output" "$url" \
-      2> >(tee -a "$LOG_FILE" | awk 'BEGIN { RS = "\r" } {
-        if (match($0, /[0-9]+([.][0-9]+)?%/)) {
-          value = substr($0, RSTART, RLENGTH)
-          sub(/%/, "", value)
-          printf "%d\n", value
-          fflush()
-        }
-      }' | dialog --title "yaPDP Kiosk Setup" \
-        --gauge "Downloading Google Chrome Stable...\n\nLive download progress" \
-        8 76 0 >/dev/tty 2>&1)
-  else
-    curl --fail --location --silent --show-error \
-      --connect-timeout 30 --max-time 300 \
-      --speed-time 45 --speed-limit 1024 \
-      --retry 5 --retry-all-errors --retry-delay 5 --retry-max-time 900 \
-      --continue-at - --output "$output" "$url"
-  fi
+  # Keep each failed attempt's partial file. The next curl invocation uses
+  # --continue-at - again, so a slow or interrupted transfer resumes instead
+  # of starting from byte zero. There is deliberately no fixed total timeout:
+  # the low-speed limit detects a stalled connection without penalizing a
+  # consistently slow one.
+  for attempt in 1 2 3 4 5 6 7 8 9 10; do
+    echo "Downloading Google Chrome Stable (attempt $attempt of 10)..."
+
+    if [[ "$VERBOSE" != "1" && "${NONINTERACTIVE:-0}" != "1" ]] \
+       && [[ -r /dev/tty && -w /dev/tty ]] \
+       && command -v dialog >/dev/null 2>&1; then
+      # Use a synchronous pipeline. Curl's progress stream is translated
+      # from carriage-return updates into dialog gauge percentages; the
+      # previous process-substitution approach could leave the gauge at 0%.
+      if curl "${curl_args[@]}" "$url" 2>&1 \
+        | tee -a "$LOG_FILE" \
+        | tr '\\r' '\\n' \
+        | awk '{
+            if (match($0, /[0-9]+([.][0-9]+)?%/)) {
+              value = substr($0, RSTART, RLENGTH)
+              sub(/%/, "", value)
+              printf "%d\\n", value
+              fflush()
+            }
+          }' \
+        | dialog --title "yaPDP Kiosk Setup" \
+          --gauge "Downloading Google Chrome Stable...\\n\\nThe transfer can take several minutes. Interrupted downloads will resume." \
+          9 76 0 >/dev/tty 2>&1; then
+        return 0
+      else
+        status=$?
+      fi
+    else
+      if curl "${curl_args[@]}" "$url"; then
+        return 0
+      else
+        status=$?
+      fi
+    fi
+
+    if (( attempt < 10 )); then
+      echo "Chrome download attempt failed (exit $status). Retaining partial data and retrying in 5 seconds..."
+      sleep 5
+    fi
+  done
+
+  echo "ERROR: Could not download Google Chrome after 10 attempts." >&2
+  echo "Any partial download has been retained at: $output" >&2
+  return "$status"
 }
 
 trap 'status=$?; line=$LINENO; command=$BASH_COMMAND; echo "ERROR: exit $status at line $line: $command"; echo "Installation log: $LOG_FILE"; if [[ "$VERBOSE" != "1" && -r /dev/tty && -w /dev/tty ]] && command -v dialog >/dev/null 2>&1; then dialog --title "yaPDP Kiosk Setup — Error" --msgbox "Installation failed (exit code $status).\n\nDetailed log:\n$LOG_FILE" 10 78 </dev/tty >/dev/tty 2>&1 || true; else echo "Installation failed. Log: $LOG_FILE" >&2; fi' ERR
