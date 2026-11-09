@@ -131,7 +131,7 @@ download_chrome_with_progress() {
         }
       }' | dialog --title "yaPDP Kiosk Setup" \
         --gauge "Downloading Google Chrome Stable...\n\nLive download progress" \
-        8 76 0 2>/dev/tty)
+        8 76 0 >/dev/tty 2>&1)
   else
     curl --fail --location --silent --show-error \
       --connect-timeout 30 --max-time 300 \
@@ -387,7 +387,7 @@ fetch_git_with_progress() {
           }' \
         | dialog --title "yaPDP Museum Kiosk Setup" \
           --gauge "Fetching $label from GitHub...\n\nReceiving and indexing Git objects" \
-          8 76 0 2>/dev/tty; then
+          8 76 0 >/dev/tty 2>&1; then
         return 0
       else
         status=$?
