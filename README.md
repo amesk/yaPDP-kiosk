@@ -47,14 +47,18 @@ Do not pipe a remote script directly into a root shell. Download it, inspect it,
 
 - Creates a dedicated unprivileged `yapdp-kiosk` account (override with `KIOSK_USER=name`).
 - Refuses to use a kiosk account that belongs to the `sudo` group.
-- Enables GDM automatic login for that account.
-- Adds a per-user desktop-session autostart entry for the kiosk browser.
+- Installs GNOME Kiosk and its script-session component.
+- Creates the GNOME Kiosk user launcher at `~/.local/bin/gnome-kiosk-script`, which runs the existing supervised Chrome launcher.
+- Selects the GNOME Kiosk Wayland session for the kiosk account and enables GDM automatic login.
+- Removes the legacy desktop autostart entry; Chrome runs as the kiosk session's foreground application, not on top of a normal GNOME desktop.
 - Installs/configures nginx on **127.0.0.1:8080** only.
 - Keeps application files root-owned and readable by the kiosk account.
 
 The kiosk account is not an administrator. Keep a separate administrator account for maintenance. Automatic login is a physical-access convenience, not a security boundary: anyone with access to the machine can use the active kiosk session. Do not store secrets in the kiosk account.
 
-The installer edits the `[daemon]` section of `/etc/gdm3/custom.conf` to set GDM automatic login. Review this setting if the machine already has a customized display-manager policy. The change takes effect after reboot.
+The installer edits the `[daemon]` section of `/etc/gdm3/custom.conf` to set GDM automatic login and configures the kiosk user's AccountsService session preference to `gnome-kiosk-script-wayland`. Review these settings if the machine already has a customized display-manager policy. The change takes effect after reboot.
+
+The kiosk account uses GNOME Kiosk Script Session rather than a normal GNOME desktop. The session launches the user's `~/.local/bin/gnome-kiosk-script`; that script starts the existing Chrome supervisor, which relaunches the browser if it exits. Keep a separate administrator account for maintenance.
 
 ## Deployment layout
 
@@ -118,7 +122,7 @@ curl -I http://127.0.0.1:8080/yapdp/pdp11.html
 - Both pages use the same origin, so normal browser navigation works without `file://` restrictions.
 - yaPDP resources are served directly from the regular repository tree. Adding states, disk images, or other supported resources does not require rebuilding a bundle.
 - Returning to the kiosk page after inactivity is navigation, not a factory reset. Define and test a separate visitor-session reset policy if each visitor must receive a pristine emulator state.
-- Chrome kiosk mode is not a security boundary. The dedicated account is unprivileged, but automatic login means physical access to the computer grants access to its active session.
+- GNOME Kiosk limits the visitor session to the configured application instead of exposing a normal desktop. It is an application-containment measure, not a complete security boundary: physical access may still allow attempts to switch virtual terminals or use hardware/system controls. The dedicated account is unprivileged; keep a separate administrator account for maintenance.
 - The Windows launcher is intentionally not maintained; Ubuntu 24.04 is the supported deployment target.
 
 ## GitHub Pages
