@@ -37,6 +37,9 @@ yapdp_log_error() {
 yapdp_phase() {
   local percent="$1" title="$2"
   local width=32 filled empty bar
+  local base="${YAPDP_PROGRESS_BASE:-0}" span="${YAPDP_PROGRESS_SPAN:-100}"
+  percent=$((base + percent * span / 100))
+  (( percent > 100 )) && percent=100
   filled=$((percent * width / 100))
   empty=$((width - filled))
   printf -v bar '%*s' "$filled" ''
