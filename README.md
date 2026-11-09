@@ -25,6 +25,7 @@ sudo env NONINTERACTIVE=1 \
   KIOSK_REPO_URL=https://github.com/amesk/yaPDP-kiosk.git \
   IDLE_TIMEOUT=180 \
   IDLE_REDIRECT=/ \
+  INSTALL_PLYMOUTH=0 \
   bash ./instant-setup.sh
 ```
 
