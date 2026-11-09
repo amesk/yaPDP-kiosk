@@ -10,7 +10,7 @@ set -euo pipefail
 readonly YAPDP_REPO="https://github.com/amesk/yaPDP.git"
 readonly KIOSK_REPO="https://github.com/amesk/yaPDP-kiosk.git"
 readonly YAPDP_REF="6d949d18d5b335bc69effc0dda8b80bb39afb015" # idle redirect support
-readonly KIOSK_REF="11cf87d3d97be2ea355660cbf620a6faf875fb9f" # first-login welcome suppression
+readonly KIOSK_REF="557a1f622d3c8351e16da773709ec38a73607ef7" # suppress first-login and release-upgrade dialogs
 readonly INSTALL_ROOT="/opt/yapdp-exhibit"
 
 KIOSK_USER="${KIOSK_USER:-yapdp-kiosk}"
