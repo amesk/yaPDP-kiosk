@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Install the local nginx site, dedicated kiosk account, GDM auto-login,
-# and per-user desktop autostart entry.
+# Install the local nginx site, dedicated kiosk account, GNOME Kiosk session,
+# and GDM auto-login.
 # Expected layout:
 #   /opt/yapdp-exhibit/yaPDP-kiosk/
 #   /opt/yapdp-exhibit/yaPDP/
@@ -57,6 +57,18 @@ fi
 if ! dpkg-query -W -f='${Status}' gdm3 2>/dev/null | grep -q "install ok installed"; then
   echo "GNOME Display Manager (gdm3) is required for automatic login." >&2
   echo "Use Ubuntu 24.04 Desktop, or install/configure gdm3 first." >&2
+  exit 1
+fi
+
+# Use GNOME's dedicated single-application session instead of a normal desktop
+# with a browser autostart entry. This prevents the desktop from being exposed
+# when the browser process exits.
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y gnome-kiosk-script-session
+
+KIOSK_WAYLAND_SESSION="/usr/share/wayland-sessions/gnome-kiosk-script-wayland.desktop"
+if [[ ! -x /usr/bin/gnome-kiosk-script || ! -f "$KIOSK_WAYLAND_SESSION" ]]; then
+  echo "GNOME Kiosk Script Session did not install correctly." >&2
   exit 1
 fi
 
@@ -129,6 +141,9 @@ if [[ -z "$USER_HOME" || ! -d "$USER_HOME" ]]; then
   echo "Cannot find a valid home directory for $KIOSK_USER." >&2
   exit 1
 fi
+
+USER_KIOSK_SCRIPT="$USER_HOME/.local/bin/gnome-kiosk-script"
+ACCOUNTS_SERVICE_USER="/var/lib/AccountsService/users/$KIOSK_USER"
 
 NGINX_AVAILABLE="/etc/nginx/sites-available/yapdp-kiosk"
 NGINX_ENABLED="/etc/nginx/sites-enabled/yapdp-kiosk"
@@ -260,12 +275,113 @@ if content != original:
             Path(temporary).unlink()
 PY
 
-# Keep the launcher scoped to the kiosk account, not every desktop user.
-rm -f "$OLD_AUTOSTART"
-# The parent may already exist (for example, if it was created by a root
-# provisioning command). Ensure both XDG config directories are user-owned.
+# Remove the previous desktop-autostart mechanism. The GNOME Kiosk session
+# starts its dedicated user script through the package-provided systemd unit.
+rm -f "$OLD_AUTOSTART" "$USER_AUTOSTART"
+
+# Prepare the kiosk user's configuration directories and mark GNOME Initial
+# Setup complete so no first-login wizard can cover the exhibit.
 install -d -o "$KIOSK_USER" -g "$KIOSK_USER" -m 0750 "$USER_HOME/.config"
-install -d -o "$KIOSK_USER" -g "$KIOSK_USER" -m 0750 "$USER_HOME/.config/autostart"
+install -d -o "$KIOSK_USER" -g "$KIOSK_USER" -m 0750 "$USER_HOME/.local"
+install -d -o "$KIOSK_USER" -g "$KIOSK_USER" -m 0750 "$USER_HOME/.local/bin"
+printf 'yes\n' > "$USER_HOME/.config/gnome-initial-setup-done"
+chown "$KIOSK_USER:$KIOSK_USER" "$USER_HOME/.config/gnome-initial-setup-done"
+chmod 0644 "$USER_HOME/.config/gnome-initial-setup-done"
+
+# GNOME Kiosk Script Session invokes ~/.local/bin/gnome-kiosk-script.
+# Publish it atomically so an interrupted install cannot leave an empty launcher.
+KIOSK_SCRIPT_TMP="$(mktemp "$USER_HOME/.local/bin/.gnome-kiosk-script.XXXXXX")"
+if ! cat > "$KIOSK_SCRIPT_TMP" <<KIOSK_SCRIPT
+#!/bin/sh
+exec /bin/bash "$KIOSK_DIR/start-kiosk.sh"
+KIOSK_SCRIPT
+then
+  rm -f "$KIOSK_SCRIPT_TMP"
+  echo "Failed to write the GNOME Kiosk launcher." >&2
+  exit 1
+fi
+
+if [[ ! -s "$KIOSK_SCRIPT_TMP" ]] ||
+   ! grep -Fxq '#!/bin/sh' "$KIOSK_SCRIPT_TMP" ||
+   ! grep -Fxq "exec /bin/bash \"$KIOSK_DIR/start-kiosk.sh\"" "$KIOSK_SCRIPT_TMP"; then
+  rm -f "$KIOSK_SCRIPT_TMP"
+  echo "Generated GNOME Kiosk launcher failed validation." >&2
+  exit 1
+fi
+chown "$KIOSK_USER:$KIOSK_USER" "$KIOSK_SCRIPT_TMP"
+chmod 0755 "$KIOSK_SCRIPT_TMP"
+mv -f -- "$KIOSK_SCRIPT_TMP" "$USER_KIOSK_SCRIPT"
+
+# Select the tested Wayland kiosk session for GDM automatic login. Session is
+# the installed Wayland session desktop-file ID; SessionType makes the choice
+# explicit. Keep the Xorg fallback ID available for manual recovery.
+python3 - "$ACCOUNTS_SERVICE_USER" <<'PY'
+from pathlib import Path
+import os
+import re
+import tempfile
+import sys
+
+path = Path(sys.argv[1])
+path.parent.mkdir(parents=True, exist_ok=True)
+lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+section_start = None
+section_end = len(lines)
+
+for index, line in enumerate(lines):
+    if re.match(r"^\\s*\\[User\\]\\s*(?:#.*)?$", line, re.I):
+        section_start = index
+        for end in range(index + 1, len(lines)):
+            if re.match(r"^\\s*\\[[^]]+\\]", lines[end]):
+                section_end = end
+                break
+        break
+
+if section_start is None:
+    if lines and lines[-1].strip():
+        lines.append("")
+    lines.append("[User]")
+    section_start = len(lines) - 1
+    section_end = len(lines)
+
+settings = {
+    "Session": "gnome-kiosk-script-wayland",
+    "SessionType": "wayland",
+    "XSession": "gnome-kiosk-script-xorg",
+}
+seen = set()
+updated = []
+for index, line in enumerate(lines):
+    if section_start < index < section_end:
+        match = re.match(r"^\\s*(Session|SessionType|XSession)\\s*=", line)
+        if match:
+            key = match.group(1)
+            if key not in seen:
+                updated.append(f"{key}={settings[key]}")
+                seen.add(key)
+            continue
+    updated.append(line)
+
+insert_at = next(
+    (i for i, line in enumerate(updated)
+     if i > section_start and re.match(r"^\\s*\\[[^]]+\\]", line)),
+    len(updated),
+)
+updated[insert_at:insert_at] = [
+    f"{key}={value}" for key, value in settings.items() if key not in seen
+]
+
+fd, temporary = tempfile.mkstemp(prefix=path.name + ".", dir=path.parent)
+try:
+    with os.fdopen(fd, "w", encoding="utf-8") as output:
+        output.write("\\n".join(updated) + "\\n")
+    os.chmod(temporary, 0o644)
+    os.chown(temporary, 0, 0)
+    os.replace(temporary, path)
+finally:
+    if os.path.exists(temporary):
+        os.unlink(temporary)
+PY
 # Ubuntu 24.04 runs GNOME Initial Setup on a new account's first login.
 # Mark it complete for the dedicated kiosk user so no welcome wizard covers the exhibit.
 printf 'yes\n' > "$USER_HOME/.config/gnome-initial-setup-done"
@@ -372,6 +488,7 @@ systemctl reload nginx
 echo
 echo "yaPDP kiosk nginx site installed."
 echo "Kiosk account: $KIOSK_USER"
+echo "GNOME Kiosk Wayland session selected for GDM automatic login."
 echo "GDM automatic login enabled for that account (effective after reboot)."
 echo "Kiosk URL: http://127.0.0.1:8080/"
 echo "yaPDP URL: http://127.0.0.1:8080/yapdp/pdp11.html"
