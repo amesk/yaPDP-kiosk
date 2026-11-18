@@ -1,18 +1,23 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#080b10">
-  <meta name="description" content="A configurable full-screen museum kiosk.">
-  <title>Museum kiosk</title>
-  <link rel="stylesheet" href="css/kiosk.css">
+  <meta name="description" content="Интерактивный экспонат: мир PDP-11.">
+  <title>yaPDP — интерактивный экспонат</title>
+  <!-- The ?v= suffix busts the browser cache when these files change. -->
+  <link rel="stylesheet" href="css/kiosk.css?v=2">
   <script src="config.js"></script>
-  <script defer src="js/app.js"></script>
+  <script defer src="js/i18n.js?v=2"></script>
+  <script defer src="js/app.js?v=2"></script>
 </head>
 <body>
-  <main class="kiosk" aria-label="Museum presentation">
-    <div class="stage" id="stage" aria-live="off">
+  <main class="kiosk">
+    <!-- The wording below is the default (Russian) shell text. js/app.js reads
+         it once as the fallback dictionary, so translations never replace it
+         with an empty string. -->
+    <div class="stage" id="stage" aria-label="Презентация экспоната" aria-live="off">
       <div class="fallback" id="fallback"></div>
       <img class="media media-image" id="image" alt="" hidden>
       <video class="media media-video" id="video" playsinline muted loop hidden></video>
@@ -21,21 +26,26 @@
     </div>
 
     <header class="branding">
-      <div class="eyebrow" id="eyebrow">INTERACTIVE EXHIBIT</div>
-      <h1 id="title">Welcome</h1>
-      <p id="subtitle">Discover the exhibit</p>
+      <div class="eyebrow" id="eyebrow">ИНТЕРАКТИВНЫЙ ЭКСПОНАТ</div>
+      <h1 id="title">yaPDP</h1>
+      <p id="subtitle">Мир PDP-11</p>
     </header>
 
-    <section class="invitation" aria-label="Start the exhibit">
-      <button class="launch" id="launch" type="button">
-        <span id="buttonText">Press me to launch!</span>
+    <button class="lang-toggle" id="langToggle" type="button" aria-label="Язык / Language">
+      <span data-lang="ru">RU</span>
+      <span data-lang="en">EN</span>
+    </button>
+
+    <section class="invitation">
+      <button class="launch" id="launch" type="button" aria-label="Запустить экспонат">
+        <span id="buttonText">Запустить</span>
         <span class="launch-arrow" aria-hidden="true">→</span>
       </button>
-      <p class="hint" id="hint">Touch the button to begin</p>
+      <p class="hint" id="hint">Коснитесь кнопки, чтобы начать</p>
     </section>
 
     <footer class="footer">
-      <span id="footerText">Please enjoy the exhibition</span>
+      <span id="footerText">Приятного знакомства с экспонатом</span>
       <span class="progress" aria-hidden="true"><span id="progress"></span></span>
     </footer>
   </main>
