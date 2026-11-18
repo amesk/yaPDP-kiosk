@@ -23,6 +23,12 @@ mkdir -p "$PROFILE_DIR"
 # away from the kiosk window. These are per-user settings: the administrator's
 # desktop remains unaffected. Run from the graphical session, where gsettings
 # has access to the kiosk user's dconf database.
+#
+# switch-to-session-1..12 are the compositor's own Ctrl+Alt+F1..F12 handlers.
+# gnome-kiosk runs Mutter, which owns those shortcuts, so clearing them is what
+# keeps a visitor on the exhibit VT. The installer seeds the same values before
+# the session starts and additionally suppresses Magic SysRq, Ctrl+Alt+Del and
+# the logind power/reboot keys, which no user-space shortcut can block.
 disable_gnome_shortcuts() {
   local schema key
   local -a wm_keys=(
@@ -54,8 +60,14 @@ disable_gnome_shortcuts() {
   for key in "${wm_keys[@]}"; do
     gsettings set org.gnome.desktop.wm.keybindings "$key" "[]" 2>/dev/null || true
   done
+  # switch-to-session-N does not exist in every mutter/gnome-kiosk build, so
+  # only write the keys this schema actually ships.
+  local mutter_available
+  mutter_available="$(gsettings list-keys org.gnome.mutter.keybindings 2>/dev/null || true)"
   for key in "${mutter_keys[@]}"; do
-    gsettings set org.gnome.mutter.keybindings "$key" "[]" 2>/dev/null || true
+    if printf '%s\n' "$mutter_available" | grep -Fxq "$key"; then
+      gsettings set org.gnome.mutter.keybindings "$key" "@as []" 2>/dev/null || true
+    fi
   done
   for key in "${shell_keys[@]}"; do
     gsettings set org.gnome.shell.keybindings "$key" "[]" 2>/dev/null || true

@@ -314,6 +314,25 @@ if ! runuser -u "$KIOSK_USER" -- env HOME="$USER_HOME" \
   exit 1
 fi
 
+# Mutter normally owns the Ctrl+Alt+F1..F12 virtual-terminal switch, but the
+# switch-to-session-N keys do not exist in every mutter build and gnome-kiosk
+# can ship a reduced schema. Seed them only when the key is actually present:
+# an optional hardening step must never abort the installation. start-kiosk.sh
+# repeats the same clearing at every browser launch.
+if ! runuser -u "$KIOSK_USER" -- env HOME="$USER_HOME" \
+    dbus-run-session -- sh -c '
+      set -eu
+      keys="$(gsettings list-keys org.gnome.mutter.keybindings 2>/dev/null || true)"
+      for n in 1 2 3 4 5 6 7 8 9 10 11 12; do
+        key="switch-to-session-$n"
+        if printf "%s\n" "$keys" | grep -Fxq "$key"; then
+          gsettings set org.gnome.mutter.keybindings "$key" "@as []" || true
+        fi
+      done
+    '; then
+  echo "Warning: could not pre-clear the Mutter switch-to-session keybindings for $KIOSK_USER; Ctrl+Alt+F1..F12 is cleared at session start instead." >&2
+fi
+
 printf 'yes\n' > "$USER_HOME/.config/gnome-initial-setup-done"
 chown "$KIOSK_USER:$KIOSK_USER" "$USER_HOME/.config/gnome-initial-setup-done"
 chmod 0644 "$USER_HOME/.config/gnome-initial-setup-done"
@@ -470,6 +489,39 @@ updated[insert_at:insert_at] = missing
 path.write_text("\n".join(updated) + "\n")
 PY
 
+yapdp_phase 85 "Hardening the kiosk against local key combinations..."
+
+# During a kiosk session the compositor's own shortcuts are disabled by
+# start-kiosk.sh, but three paths stay open to anyone touching the machine:
+# Magic SysRq (Alt+SysRq+B resets the box immediately, Alt+SysRq+K kills the
+# session), Ctrl+Alt+Del (clean reboot) and the power/reboot keys handled by
+# systemd-logind. None of them are needed by a visitor. A ~4 second hold of the
+# power button is handled by the firmware and still switches the machine off.
+KIOSK_LOGIND_DROPIN="/etc/systemd/logind.conf.d/90-yapdp-kiosk.conf"
+install -d -m 0755 "/etc/systemd/logind.conf.d"
+cat > "$KIOSK_LOGIND_DROPIN" <<'LOGIND'
+# Managed by the yaPDP kiosk installer; effective after the next reboot.
+# Undo with: sudo rm -f /etc/systemd/logind.conf.d/90-yapdp-kiosk.conf
+[Login]
+HandlePowerKey=ignore
+HandlePowerKeyLongPress=poweroff
+HandleRebootKey=ignore
+HandleSuspendKey=ignore
+HandleHibernateKey=ignore
+LOGIND
+
+KIOSK_SYSCTL_DROPIN="/etc/sysctl.d/90-yapdp-kiosk.conf"
+cat > "$KIOSK_SYSCTL_DROPIN" <<'SYSCTL'
+# Managed by the yaPDP kiosk installer: no Magic SysRq on a public exhibit.
+# Undo at runtime with: sudo sysctl kernel.sysrq=1
+kernel.sysrq = 0
+SYSCTL
+sysctl -q -p "$KIOSK_SYSCTL_DROPIN"
+
+if ! systemctl mask ctrl-alt-del.target >/dev/null 2>&1; then
+  echo "Warning: could not mask ctrl-alt-del.target; Ctrl+Alt+Del may reboot the exhibit." >&2
+fi
+
 yapdp_phase 95 "Enabling the local web server and finalizing setup..."
 
 systemctl enable --now nginx
@@ -480,6 +532,7 @@ echo "yaPDP kiosk nginx site installed."
 echo "Kiosk account: $KIOSK_USER"
 echo "GNOME Kiosk Wayland session selected for GDM automatic login."
 echo "GDM automatic login enabled for that account (effective after reboot)."
+echo "Keyboard hardening: SysRq disabled, Ctrl+Alt+Del masked, power/reboot keys ignored."
 echo "Kiosk URL: http://127.0.0.1:8080/"
 echo "yaPDP URL: http://127.0.0.1:8080/yapdp/pdp11.html"
 if ! command -v google-chrome-stable >/dev/null 2>&1 &&
