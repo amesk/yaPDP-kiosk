@@ -23,6 +23,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - `text-wrap: balance` on the launch button and hint, because Russian wording is wider than the English original.
 - Slide captions moved above the footer row, so the progress bar no longer runs beneath the caption text and captions stay readable.
 - The launch-button arrow is an inline SVG instead of the `→` glyph, so it stays vertically centred regardless of which font the kiosk browser selects for the label.
+- Chrome's built-in translation prompt is disabled: the launcher passes `--disable-features=Translate,TranslateUI`, and the page declares `translate="no"` plus `notranslate`. A Russian exhibit page must never invite a visitor to translate the kiosk itself.
 
 ### Compatibility
 

@@ -127,6 +127,7 @@ Behaviour worth knowing:
 - Switching the language rewrites text only. The current slide, its progress bar, and any running video continue undisturbed.
 - The visitor's choice is kept in `sessionStorage` (`yapdp.kiosk.lang`), so it survives the hand-off to yaPDP and the return to the welcome page, but a browser restart resets it to `locale` and the next visitor sees the default language.
 - `?lang=en` appended to `KIOSK_URL` in `start-kiosk.sh` pins one machine to English regardless of the stored choice; `locale: "auto"` follows the browser language instead.
+- The browser's own translation UI is disabled, because the page is Russian while the Chrome profile is English and Chrome would otherwise offer to translate the exhibit. `start-kiosk.sh` passes `--disable-features=Translate,TranslateUI`, and `index.html` declares `translate="no"` together with `<meta name="google" content="notranslate">`. A machine managed by other means should instead set the Chrome policy `TranslateEnabled` to `false`.
 
 The earlier flat keys (`title`, `eyebrow`, `subtitle`, `buttonText`, `buttonHint`, `footerText`) moved into `locales`. A configuration that still uses them keeps working: the runtime falls back to the wording in `index.html`, so an exhibit updated in place shows Russian defaults instead of breaking.
 
