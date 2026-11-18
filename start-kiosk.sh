@@ -23,6 +23,12 @@ mkdir -p "$PROFILE_DIR"
 # away from the kiosk window. These are per-user settings: the administrator's
 # desktop remains unaffected. Run from the graphical session, where gsettings
 # has access to the kiosk user's dconf database.
+#
+# switch-to-session-1..12 are the compositor's own Ctrl+Alt+F1..F12 handlers.
+# gnome-kiosk runs Mutter, which owns those shortcuts, so clearing them is what
+# keeps a visitor on the exhibit VT. The installer seeds the same values before
+# the session starts and additionally suppresses Magic SysRq, Ctrl+Alt+Del and
+# the logind power/reboot keys, which no user-space shortcut can block.
 disable_gnome_shortcuts() {
   local schema key
   local -a wm_keys=(

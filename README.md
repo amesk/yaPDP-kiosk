@@ -34,6 +34,7 @@ Supported variables are `YAPDP_REPO_URL`, `KIOSK_REPO_URL`, `IDLE_TIMEOUT` (seco
 The script is designed for a **fresh Ubuntu 24.04 Desktop installation**. It refuses to overwrite an existing `/opt/yapdp-exhibit` directory and pins exact commits of both repositories. It does not install the operating system, partition disks, or configure firmware/BIOS settings. The bootstrap installs Chrome Stable from Google's official download endpoint when needed; this requires internet access and an amd64 machine.
 
 The bootstrap:
+
 1. Checks Ubuntu 24.04 Desktop and GDM.
 2. Installs the official Google Chrome Stable `.deb` from Google if Chrome is not already installed, then verifies the executable and version. On amd64 only.
 3. Installs Git if needed.
@@ -128,8 +129,28 @@ curl -I http://127.0.0.1:8080/yapdp/pdp11.html
 - Both pages use the same origin, so normal browser navigation works without `file://` restrictions.
 - yaPDP resources are served directly from the regular repository tree. Adding states, disk images, or other supported resources does not require rebuilding a bundle.
 - Returning to the kiosk page after inactivity is navigation, not a factory reset. Define and test a separate visitor-session reset policy if each visitor must receive a pristine emulator state.
-- GNOME Kiosk limits the visitor session to the configured application instead of exposing a normal desktop. It is an application-containment measure, not a complete security boundary: physical access may still allow attempts to switch virtual terminals or use hardware/system controls. The dedicated account is unprivileged; keep a separate administrator account for maintenance.
+- GNOME Kiosk limits the visitor session to the configured application instead of exposing a normal desktop. It is an application-containment measure, not a complete security boundary: physical access may still allow attempts to bypass it. The dedicated account is unprivileged; keep a separate administrator account for maintenance.
 - The Windows launcher is intentionally not maintained; Ubuntu 24.04 is the supported deployment target.
+
+### Physical-access hardening
+
+The installer also closes the keyboard paths that do not depend on the browser or the compositor:
+
+- `org.gnome.mutter.keybindings switch-to-session-1..12` is cleared for the kiosk account before the session starts, so **Ctrl+Alt+F1..F12** cannot leave the GNOME Kiosk session for the GDM greeter or a spare virtual terminal. `start-kiosk.sh` re-applies the same setting at every browser launch.
+- `/etc/sysctl.d/90-yapdp-kiosk.conf` sets `kernel.sysrq = 0`, so Magic SysRq (for example Alt+SysRq+B, Alt+SysRq+K) cannot reset the machine or kill the exhibit session.
+- `ctrl-alt-del.target` is masked, so **Ctrl+Alt+Del** no longer reboots the exhibit.
+- `/etc/systemd/logind.conf.d/90-yapdp-kiosk.conf` ignores the hardware power, reboot, suspend, and hibernate keys. A ~4 second power-button hold is handled by the firmware and still switches the machine off.
+
+These are deliberate, reversible system settings; the logind part takes effect after the next reboot. Undo them with:
+
+```bash
+sudo systemctl unmask ctrl-alt-del.target
+sudo rm -f /etc/sysctl.d/90-yapdp-kiosk.conf /etc/systemd/logind.conf.d/90-yapdp-kiosk.conf
+sudo sysctl kernel.sysrq=1
+sudo systemctl restart systemd-logind
+```
+
+None of this protects against firmware-level access: set a BIOS/UEFI administrator password, disable booting from removable media, and secure the chassis if the machine is reachable by visitors. The kiosk account is also locked (no usable password), so a getty prompt on an unused virtual terminal is not a usable way in.
 
 ## GitHub Pages
 
@@ -138,7 +159,6 @@ The repository can also be hosted as a static presentation page using GitHub Pag
 ## License
 
 Add the license appropriate for your deployment before redistributing the project.
-
 
 ## Plymouth boot splash
 
