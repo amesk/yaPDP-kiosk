@@ -22,6 +22,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Stylesheet and script URLs in `index.html` carry a `?v=` suffix so an already installed kiosk picks up updated `css/kiosk.css` and `js/*.js` after an update.
 - `text-wrap: balance` on the launch button and hint, because Russian wording is wider than the English original.
 - Slide captions moved above the footer row, so the progress bar no longer runs beneath the caption text and captions stay readable.
+- The launch-button arrow is an inline SVG instead of the `→` glyph, so it stays vertically centred regardless of which font the kiosk browser selects for the label.
 
 ### Compatibility
 

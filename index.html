@@ -7,7 +7,7 @@
   <meta name="description" content="Интерактивный экспонат: мир PDP-11.">
   <title>yaPDP — интерактивный экспонат</title>
   <!-- The ?v= suffix busts the browser cache when these files change. -->
-  <link rel="stylesheet" href="css/kiosk.css?v=3">
+  <link rel="stylesheet" href="css/kiosk.css?v=4">
   <script src="config.js"></script>
   <script defer src="js/i18n.js?v=2"></script>
   <script defer src="js/app.js?v=2"></script>
@@ -39,7 +39,7 @@
     <section class="invitation">
       <button class="launch" id="launch" type="button" aria-label="Запустить экспонат">
         <span id="buttonText">Запустить</span>
-        <span class="launch-arrow" aria-hidden="true">→</span>
+        <svg class="launch-arrow" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3.5 12h15M18.5 12 12 5.8M18.5 12 12 18.2" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <p class="hint" id="hint">Коснитесь кнопки, чтобы начать</p>
     </section>

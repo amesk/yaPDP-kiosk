@@ -27,7 +27,10 @@ h1 { margin: 0; font-size: clamp(46px, 8vw, 120px); line-height: .98; font-weigh
 .launch { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 24px; min-width: min(80vw, 540px); min-height: 92px; padding: 22px 38px; border: 2px solid rgba(255,239,193,.95); border-radius: 16px; color: #17120a; background: linear-gradient(180deg, #ffe49b, #e8a92f); box-shadow: 0 0 0 7px rgba(245,187,77,.13), 0 0 35px 8px rgba(255,190,65,.44), 0 18px 55px rgba(0,0,0,.45); font-size: clamp(22px, 2.6vw, 36px); font-weight: 800; cursor: pointer; animation: pulse 2.2s ease-in-out infinite; transition: transform .18s ease, filter .18s ease; }
 .launch:hover, .launch:focus-visible { transform: translateY(-3px) scale(1.025); filter: brightness(1.08); outline: 4px solid #fff; outline-offset: 7px; }
 .launch:active { transform: translateY(1px) scale(.99); }
-.launch-arrow { font-size: 1.3em; line-height: .7; }
+/* Drawn as geometry, not as a font glyph: the "→" character was positioned by
+   its font metrics inside a shrunken line box, so it drifted off the button
+   centre whenever the browser picked another font for the label. */
+.launch-arrow { display: block; align-self: center; flex: 0 0 auto; width: 1.15em; height: 1.15em; }
 .hint { margin: 20px 0 0; font-size: clamp(14px, 1.25vw, 19px); color: rgba(255,255,255,.85); text-shadow: 0 2px 12px #000; letter-spacing: .04em; }
 /* Russian wording is longer than English: never let it break the button. */
 .launch, .hint { text-wrap: balance; }
