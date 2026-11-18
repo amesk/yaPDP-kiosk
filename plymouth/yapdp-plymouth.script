@@ -34,20 +34,27 @@ panel_y = (screen_h - panel.GetHeight()) / 2 - (screen_h * 0.025);
 panel_sprite = Sprite(panel);
 panel_sprite.SetPosition(panel_x, panel_y, 0);
 
-# The panel artwork has twelve recessed indicator wells at y=206.
-# Their x positions are expressed in source-art coordinates.
+# The panel artwork has twelve recessed indicator wells centred on x=584+58i,
+# y=211 (source-art coordinates). The LED artwork is 32x32 with the lit dot
+# centred at (16, 16), so a sprite origin sits half an artwork away from the
+# well centre it has to cover.
+well_first_x = 584;
+well_step = 58;
+led_half = 16;
+led_row_y = 211 - led_half;
+
 led_sprites = [];
 for (i = 0; i < 12; i++) {
     led_sprites[i] = Sprite(green_led);
-    led_sprites[i].SetPosition(panel_x + (572 + i * 58) * scale,
-                               panel_y + 197 * scale, 10);
+    led_sprites[i].SetPosition(panel_x + (well_first_x + i * well_step - led_half) * scale,
+                               panel_y + led_row_y * scale, 10);
     led_sprites[i].SetOpacity(0.12);
 }
 
 activity_a = Sprite(amber_led);
 activity_b = Sprite(amber_led);
-activity_a.SetPosition(panel_x + 1270 * scale, panel_y + 197 * scale, 11);
-activity_b.SetPosition(panel_x + 1310 * scale, panel_y + 197 * scale, 11);
+activity_a.SetPosition(panel_x + 1270 * scale, panel_y + led_row_y * scale, 11);
+activity_b.SetPosition(panel_x + 1310 * scale, panel_y + led_row_y * scale, 11);
 activity_a.SetOpacity(0.0);
 activity_b.SetOpacity(0.0);
 
