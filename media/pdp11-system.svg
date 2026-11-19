@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080">
+<defs>
+ <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#243746"/><stop offset=".55" stop-color="#101923"/><stop offset="1" stop-color="#080b10"/></linearGradient>
+ <linearGradient id="metal" x2="0" y2="1"><stop stop-color="#e2e0d4"/><stop offset=".45" stop-color="#aaa99e"/><stop offset="1" stop-color="#686d70"/></linearGradient>
+ <linearGradient id="dark" x2="0" y2="1"><stop stop-color="#242b31"/><stop offset="1" stop-color="#090d12"/></linearGradient>
+ <radialGradient id="glow"><stop stop-color="#e9a94a" stop-opacity=".32"/><stop offset="1" stop-color="#e9a94a" stop-opacity="0"/></radialGradient>
+ <filter id="shadow"><feGaussianBlur stdDeviation="26"/></filter>
+</defs>
+<rect width="1920" height="1080" fill="url(#bg)"/>
+<circle cx="1240" cy="490" r="570" fill="url(#glow)"/>
+<path d="M0 850 1920 760v320H0Z" fill="#080c11" opacity=".75"/>
+<ellipse cx="1030" cy="900" rx="660" ry="80" fill="#000" opacity=".55" filter="url(#shadow)"/>
+<!-- PDP-11/70 cabinet -->
+<g transform="translate(590 145)">
+ <path d="M0 50 770 0l120 70v730l-120 65L0 815Z" fill="#343b40"/>
+ <path d="M0 50 770 0v800L0 815Z" fill="url(#metal)" stroke="#f4f0dc" stroke-opacity=".4" stroke-width="5"/>
+ <path d="M770 0 890 70v730l-120 65Z" fill="#747a7d"/>
+ <path d="M70 105 705 65v265L70 375Z" fill="#10161c" stroke="#d5d0be" stroke-width="10"/>
+ <path d="M95 135 675 100v215L95 350Z" fill="#141b22"/>
+ <text x="130" y="185" fill="#f4f0dc" font-family="Arial,sans-serif" font-size="42" font-weight="bold">DEC PDP-11/70</text>
+ <g fill="#a83235"><rect x="130" y="220" width="500" height="12" rx="6"/><rect x="130" y="255" width="360" height="8" rx="4"/></g>
+ <g fill="#e5b45b">
+  <circle cx="150" cy="295" r="8"/><circle cx="195" cy="295" r="8"/><circle cx="240" cy="295" r="8"/><circle cx="285" cy="295" r="8"/><circle cx="330" cy="295" r="8"/><circle cx="375" cy="295" r="8"/><circle cx="420" cy="295" r="8"/><circle cx="465" cy="295" r="8"/><circle cx="510" cy="295" r="8"/><circle cx="555" cy="295" r="8"/><circle cx="600" cy="295" r="8"/>
+ </g>
+ <path d="M70 420 705 385v310L70 730Z" fill="#161d24" stroke="#d5d0be" stroke-width="10"/>
+ <text x="120" y="470" fill="#eee7d3" font-family="Arial,sans-serif" font-size="34" font-weight="bold">PROCESSOR &amp; MEMORY</text>
+ <g fill="#8e262d"><rect x="120" y="500" width="520" height="13"/><rect x="120" y="540" width="390" height="8"/></g>
+ <g fill="#d5a34d">
+  <circle cx="150" cy="590" r="7"/><circle cx="195" cy="590" r="7"/><circle cx="240" cy="590" r="7"/><circle cx="285" cy="590" r="7"/><circle cx="330" cy="590" r="7"/><circle cx="375" cy="590" r="7"/><circle cx="420" cy="590" r="7"/><circle cx="465" cy="590" r="7"/><circle cx="510" cy="590" r="7"/><circle cx="555" cy="590" r="7"/><circle cx="600" cy="590" r="7"/>
+ </g>
+ <g fill="#b8b7ad" stroke="#4c5153" stroke-width="3"><rect x="100" y="760" width="45" height="48"/><rect x="620" y="730" width="45" height="48"/></g>
+ <g fill="#252b30"><rect x="160" y="755" width="400" height="42" rx="5"/></g>
+</g>
+<!-- vintage terminal -->
+<g transform="translate(1400 410)">
+ <path d="M0 0 360 0l55 50v275l-55 35H0Z" fill="#b7b4a5"/>
+ <path d="M28 30 330 30l35 28v180L28 260Z" fill="#111a1c"/>
+ <path d="M50 54 315 54l22 18v148L50 238Z" fill="#102b28"/>
+ <g fill="#9dd6a2" font-family="monospace" font-size="18"><text x="70" y="100">Welcome to UNIX</text><text x="70" y="135">login: visitor</text><text x="70" y="170">$ _</text></g>
+ <path d="M-35 330h440l-30 58H-5Z" fill="#8d8d83"/>
+ <path d="M-15 390h400l30 80H-45Z" fill="#5f6668"/>
+</g>
+<g fill="#fff" opacity=".75" font-family="Arial,sans-serif"><text x="110" y="930" font-size="24" letter-spacing="8">A COMPUTER YOU CAN EXPLORE</text><text x="110" y="980" font-size="17" letter-spacing="4" opacity=".65">16-BIT COMPUTING • 1970s</text></g>
+</svg>
