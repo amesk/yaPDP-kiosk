@@ -100,13 +100,51 @@ The installer can be run again to reconfigure nginx and GDM. It does not overwri
 
 ## Configuration
 
-Edit `config.js` to change the presentation text, launch URL, slideshow timing, and media playlist.
+Edit `config.js` to change the presentation text, the default language, the launch URL, slideshow timing, and the media playlist.
 
 The installer generates `config.js`'s `launchUrl` from `IDLE_TIMEOUT` and `IDLE_REDIRECT`. The default is a three-minute timeout and a return to the kiosk welcome page. The redirect may be a relative URL (for example `/` or `/attract.html`) or an absolute HTTP(S) URL on another site. Set `IDLE_TIMEOUT=0` to disable the automatic hand-off; in that case yaPDP opens without idle parameters.
 
 The installer updates only the `launchUrl` setting and preserves the rest of the presentation configuration. The deployed yaPDP revision must include the idle-timeout/redirect support. The kiosk launcher also disables GNOME's idle screen blanking and automatic screen lock for the dedicated kiosk account, so the exhibit does not fall back to a password prompt during operation. These settings are applied in the kiosk user's graphical session; the administrator's desktop settings are not changed.
 
 Put slideshow images and videos in `media/` and list them in the `media` array. See [media/README.md](media/README.md).
+
+### Language and visible text
+
+The kiosk is bilingual out of the box: Russian is the default language and an **RU | EN** switch sits in the top-right corner. All visible wording is stored in `config.js`:
+
+| Key | Meaning |
+| --- | --- |
+| `locale` | Language the kiosk starts in: `"ru"` (default), `"en"`, or `"auto"` to follow the browser language |
+| `fallbackLocale` | Language used when a key is missing from the active dictionary |
+| `locales.ru`, `locales.en` | Text dictionaries: `documentTitle`, `title`, `eyebrow`, `subtitle`, `buttonText`, `buttonHint`, `footerText`, `ariaStage`, `ariaStart`, `ariaLang`, `loadError`, `launchMissing` |
+| `media[].captions` | Per-language slide caption, for example `{ ru: "…", en: "…" }`; the legacy `caption` key still works |
+
+A string resolves in this order: `locales[locale]` → `locales[fallbackLocale]` → the wording in `index.html` → internal default. `index.html` therefore doubles as the Russian reference text: a missing translation degrades to Russian instead of an empty screen.
+
+Behaviour worth knowing:
+
+- The switch is hidden when `locales` defines fewer than two languages, so a single-language deployment shows no extra control.
+- Switching the language rewrites text only. The current slide, its progress bar, and any running video continue undisturbed.
+- The visitor's choice is kept in `sessionStorage` (`yapdp.kiosk.lang`), so it survives the hand-off to yaPDP and the return to the welcome page, but a browser restart resets it to `locale` and the next visitor sees the default language.
+- `?lang=en` appended to `KIOSK_URL` in `start-kiosk.sh` pins one machine to English regardless of the stored choice; `locale: "auto"` follows the browser language instead.
+- The browser's own translation UI is disabled, because the page is Russian while the Chrome profile is English and Chrome would otherwise offer to translate the exhibit. `start-kiosk.sh` passes `--disable-features=Translate,TranslateUI`, and `index.html` declares `translate="no"` together with `<meta name="google" content="notranslate">`. A machine managed by other means should instead set the Chrome policy `TranslateEnabled` to `false`.
+
+The earlier flat keys (`title`, `eyebrow`, `subtitle`, `buttonText`, `buttonHint`, `footerText`) moved into `locales`. A configuration that still uses them keeps working: the runtime falls back to the wording in `index.html`, so an exhibit updated in place shows Russian defaults instead of breaking.
+
+### Updating an already installed kiosk
+
+`instant-setup.sh` defaults to `KIOSK_REF=master`, so a fresh installation picks up the current revision automatically. For an exhibit that is already running:
+
+```bash
+sudo git -C /opt/yapdp-exhibit/yaPDP-kiosk pull --ff-only
+```
+
+Then restart Chrome (or reboot the machine) to load the new files. Notes:
+
+- No installer re-run is required for presentation changes: nginx already serves the repository directory, and `install/ubuntu-24.04.sh` was not modified by this change.
+- `css/kiosk.css`, `js/i18n.js`, and `js/app.js` are requested with a `?v=` suffix. Bump that suffix in `index.html` whenever one of those files changes, otherwise the kiosk browser may keep using the cached copy.
+- `config.js` is tracked by Git. Edits made directly on the exhibit machine will conflict with `git pull --ff-only`; re-apply them after the update or keep local values out of the tracked file until the planned `config.local.js` overlay lands.
+- The localization resolver has unit tests: `node --test tests` (Node.js is needed on the developer machine only, never on the kiosk).
 
 ## Start and test manually
 

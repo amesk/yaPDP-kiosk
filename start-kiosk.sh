@@ -89,11 +89,16 @@ disable_idle_lock
 # Chrome's kiosk flag is presentation, not process supervision. If a visitor
 # closes it (Alt+F4, Ctrl+Q, etc.), relaunch it instead of leaving the desktop
 # exposed. A short delay avoids a tight loop if Chrome cannot start.
+#
+# Translate and TranslateUI are disabled because the exhibit page is Russian
+# while the browser profile is English: Chrome would otherwise offer to
+# translate the kiosk itself, which is never wanted on a public display.
 while true; do
   "$BROWSER" \
     --kiosk \
     --no-first-run \
     --no-default-browser-check \
+    --disable-features=Translate,TranslateUI \
     --password-store=basic \
     --disable-session-crashed-bubble \
     --disable-infobars \
