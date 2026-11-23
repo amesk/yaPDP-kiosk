@@ -283,7 +283,7 @@
     clearSlideTimer();
     stopProgress();
     video.pause();
-    if (onboardingCountdown) onboardingCountdown.hidden = onboardingLaunch.timeoutMs <= 0;
+    if (onboardingCountdown) onboardingCountdown.hidden = !(onboardingLaunch.timeoutMs > 0 && onboardingLaunch.returnUrl);
     onboardingDialog.showModal();
 
     if (onboardingLaunch.timeoutMs > 0 && onboardingLaunch.returnUrl) {
