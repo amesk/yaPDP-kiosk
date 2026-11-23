@@ -19,6 +19,12 @@
   const stage = $("stage");
   const launchButton = $("launch");
   const langToggle = $("langToggle");
+  const onboardingDialog = $("museumOnboarding");
+  const onboardingTimer = $("onboardingTimer");
+  const onboardingCountdown = $("onboardingCountdown");
+  const onboardingTimerLabel = $("onboardingTimerLabel");
+  const onboardingContinue = $("onboardingContinue");
+  const onboardingBack = $("onboardingBack");
   const mediaItems = Array.isArray(config.media) ? config.media.filter(item => item && item.src) : [];
   const STORAGE_KEY = "yapdp.kiosk.lang";
 
@@ -49,7 +55,14 @@
     ariaStart: attributeOf(launchButton, "aria-label"),
     ariaLang: attributeOf(langToggle, "aria-label"),
     loadError: "",
-    launchMissing: ""
+    launchMissing: "",
+    onboardingEyebrow: textOf($("onboardingEyebrow")),
+    onboardingTitle: textOf($("onboardingTitle")),
+    onboardingIntro: textOf($("onboardingIntro")),
+    onboardingSteps: textOf($("onboardingSteps")),
+    onboardingTimerLabel: textOf(onboardingTimerLabel),
+    onboardingBack: textOf(onboardingBack),
+    onboardingContinue: textOf(onboardingContinue)
   };
 
   function readStoredLocale() {
@@ -82,6 +95,9 @@
   let slideStarted = 0;
   let slideDuration = Number(config.slideInterval) || 10000;
   let launched = false;
+  let onboardingInterval = null;
+  let onboardingDeadline = 0;
+  let onboardingLaunch = null;
 
   function renderLangToggle() {
     if (!langToggle) return;
@@ -111,6 +127,13 @@
     setText($("footerText"), strings.footerText);
     setText($("buttonText"), strings.buttonText);
     setText($("hint"), strings.buttonHint);
+    setText($("onboardingEyebrow"), strings.onboardingEyebrow);
+    setText($("onboardingTitle"), strings.onboardingTitle);
+    setText($("onboardingIntro"), strings.onboardingIntro);
+    setText($("onboardingSteps"), strings.onboardingSteps);
+    setText(onboardingTimerLabel, strings.onboardingTimerLabel);
+    setText(onboardingBack, strings.onboardingBack);
+    setText(onboardingContinue, strings.onboardingContinue);
 
     if (stage && strings.ariaStage) stage.setAttribute("aria-label", strings.ariaStage);
     if (launchButton && strings.ariaStart) launchButton.setAttribute("aria-label", strings.ariaStart);
@@ -212,21 +235,84 @@
     }
   }
 
-  launchButton.addEventListener("click", () => {
-    if (launched) return;
-    launched = true;
-    clearSlideTimer();
-    stopProgress();
-    video.pause();
-    const target = config.launchUrl;
-    if (!target) {
-      launched = false;
+  function formatRemaining(milliseconds) {
+    const seconds = Math.max(0, Math.ceil(milliseconds / 1000));
+    return String(Math.floor(seconds / 60)).padStart(2, "0") + ":" +
+      String(seconds % 60).padStart(2, "0");
+  }
+
+  function stopOnboardingTimer() {
+    if (onboardingInterval) window.clearInterval(onboardingInterval);
+    onboardingInterval = null;
+    onboardingDeadline = 0;
+  }
+
+  function returnToAttractMode() {
+    stopOnboardingTimer();
+    const destination = onboardingLaunch && onboardingLaunch.returnUrl;
+    // A configured idle redirect is always used; the current page is the safe
+    // fallback for older launch URLs without an idle-redirect parameter.
+    window.location.assign(destination || window.location.pathname);
+  }
+
+  function updateOnboardingTimer() {
+    const remaining = onboardingDeadline - Date.now();
+    if (onboardingTimer) onboardingTimer.textContent = formatRemaining(remaining);
+    if (remaining <= 0) returnToAttractMode();
+  }
+
+  function resumePresentation() {
+    stopOnboardingTimer();
+    if (onboardingDialog && onboardingDialog.open) onboardingDialog.close();
+    onboardingLaunch = null;
+    launched = false;
+    nextSlide();
+  }
+
+  function openMuseumOnboarding() {
+    if (launched || !onboardingDialog) return;
+    if (!config.launchUrl) {
       alert(strings.launchMissing || "Set launchUrl in config.js before using the launch button.");
       return;
     }
-    // Navigation happens directly in the user-gesture handler, which avoids popup blockers.
-    window.location.assign(target);
-  });
+    onboardingLaunch = window.KioskOnboarding.resolve(config.launchUrl, window.location.href);
+    if (!onboardingLaunch) {
+      alert(strings.launchMissing || "Set launchUrl in config.js before using the launch button.");
+      return;
+    }
+    clearSlideTimer();
+    stopProgress();
+    video.pause();
+    if (onboardingCountdown) onboardingCountdown.hidden = onboardingLaunch.timeoutMs <= 0;
+    onboardingDialog.showModal();
+
+    if (onboardingLaunch.timeoutMs > 0 && onboardingLaunch.returnUrl) {
+      onboardingDeadline = Date.now() + onboardingLaunch.timeoutMs;
+      updateOnboardingTimer();
+      onboardingInterval = window.setInterval(updateOnboardingTimer, 250);
+    }
+  }
+
+  launchButton.addEventListener("click", openMuseumOnboarding);
+
+  if (onboardingDialog) {
+    // The visitor must explicitly choose to continue or return; Escape and
+    // backdrop clicks must not silently dismiss the museum instructions.
+    onboardingDialog.addEventListener("cancel", (event) => event.preventDefault());
+  }
+
+  if (onboardingContinue) {
+    onboardingContinue.addEventListener("click", () => {
+      if (!onboardingLaunch || launched) return;
+      launched = true;
+      stopOnboardingTimer();
+      // The skip flag suppresses yaPDP's own first-run onboarding only for this
+      // museum hand-off; normal yaPDP visits remain unchanged.
+      window.location.assign(onboardingLaunch.url);
+    });
+  }
+
+  if (onboardingBack) onboardingBack.addEventListener("click", resumePresentation);
 
   applyLocale(locale);
 
