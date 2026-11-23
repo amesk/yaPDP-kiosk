@@ -11,8 +11,9 @@
   <!-- The ?v= suffix busts the browser cache when these files change. -->
   <link rel="stylesheet" href="css/kiosk.css?v=4">
   <script src="config.js"></script>
-  <script defer src="js/i18n.js?v=2"></script>
-  <script defer src="js/app.js?v=2"></script>
+  <script defer src="js/i18n.js?v=3"></script>
+  <script defer src="js/onboarding.js?v=1"></script>
+  <script defer src="js/app.js?v=3"></script>
 </head>
 <body>
   <main class="kiosk">
@@ -45,6 +46,26 @@
       </button>
       <p class="hint" id="hint">Коснитесь кнопки, чтобы начать</p>
     </section>
+
+    <dialog class="museum-onboarding" id="museumOnboarding" aria-labelledby="onboardingTitle" aria-describedby="onboardingIntro">
+      <div class="onboarding-content">
+        <div class="onboarding-eyebrow" id="onboardingEyebrow">ИНСТРУКЦИЯ ДЛЯ ПОСЕТИТЕЛЯ</div>
+        <h2 id="onboardingTitle">Как начать работу</h2>
+        <p class="onboarding-intro" id="onboardingIntro">В yaPDP можно познакомиться с компьютером PDP-11.</p>
+        <div class="onboarding-step">
+          <span class="onboarding-wand" aria-hidden="true">🪄</span>
+          <p id="onboardingSteps">Нажмите на значок волшебной палочки и выберите один из готовых сценариев или просто загрузите операционную систему.</p>
+        </div>
+        <div class="onboarding-countdown" id="onboardingCountdown" hidden>
+          <span id="onboardingTimerLabel">До возврата к заставке</span>
+          <strong id="onboardingTimer">03:00</strong>
+        </div>
+        <div class="onboarding-actions">
+          <button class="onboarding-back" id="onboardingBack" type="button">Назад</button>
+          <button class="onboarding-continue" id="onboardingContinue" type="button">Перейти к yaPDP</button>
+        </div>
+      </div>
+    </dialog>
 
     <footer class="footer">
       <span id="footerText">Приятного знакомства с экспонатом</span>
