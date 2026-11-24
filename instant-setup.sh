@@ -26,7 +26,7 @@ fi
 YAPDP_REPO_URL="${YAPDP_REPO_URL:-https://github.com/amesk/yaPDP.git}"
 KIOSK_REPO_URL="${KIOSK_REPO_URL:-https://github.com/amesk/yaPDP-kiosk.git}"
 # Keep known-good revisions pinned by default. Forks can override the refs too.
-YAPDP_REF="${YAPDP_REF:-6d949d18d5b335bc69effc0dda8b80bb39afb015}"
+YAPDP_REF="${YAPDP_REF:-95dd47a9bab9a0a2854669197b077b3388dda09b}"
 KIOSK_REF="${KIOSK_REF:-master}"
 readonly INSTALL_ROOT="/opt/yapdp-exhibit"
 
