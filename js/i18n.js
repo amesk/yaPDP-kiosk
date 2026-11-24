@@ -20,7 +20,14 @@
     "ariaStart",
     "ariaLang",
     "loadError",
-    "launchMissing"
+    "launchMissing",
+    "onboardingEyebrow",
+    "onboardingTitle",
+    "onboardingIntro",
+    "onboardingSteps",
+    "onboardingTimerLabel",
+    "onboardingBack",
+    "onboardingContinue"
   ];
 
   // Last-resort strings. index.html carries the same Russian wording, so these
@@ -37,7 +44,14 @@
     ariaStart: "Запустить экспонат",
     ariaLang: "Язык / Language",
     loadError: "Не удалось загрузить",
-    launchMissing: "Укажите launchUrl в config.js"
+    launchMissing: "Укажите launchUrl в config.js",
+    onboardingEyebrow: "ИНСТРУКЦИЯ ДЛЯ ПОСЕТИТЕЛЯ",
+    onboardingTitle: "Как начать работу",
+    onboardingIntro: "В yaPDP можно познакомиться с компьютером PDP-11.",
+    onboardingSteps: "Нажмите на значок волшебной палочки 🪄 и выберите один из готовых сценариев или просто загрузите операционную систему.",
+    onboardingTimerLabel: "До возврата к заставке",
+    onboardingBack: "Назад к заставке",
+    onboardingContinue: "Перейти к yaPDP"
   };
 
   function isText(value) {

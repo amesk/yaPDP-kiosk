@@ -56,3 +56,41 @@ h1 { margin: 0; font-size: clamp(46px, 8vw, 120px); line-height: .98; font-weigh
   .lang-toggle { top: 18px; right: 18px; min-height: 48px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+
+/* Museum-specific visitor instructions shown before handing off to yaPDP. */
+.museum-onboarding {
+  width: min(900px, calc(100vw - 48px));
+  max-width: none;
+  max-height: min(88vh, 900px);
+  padding: 0;
+  overflow: auto;
+  border: 1px solid rgba(255,239,193,.42);
+  border-radius: 24px;
+  color: #fff;
+  background: linear-gradient(145deg, #1b2a38, #0b1119 78%);
+  box-shadow: 0 28px 100px rgba(0,0,0,.72), 0 0 0 1px rgba(255,255,255,.06);
+}
+.museum-onboarding::backdrop { background: rgba(2,5,9,.82); backdrop-filter: blur(8px); }
+.onboarding-content { padding: clamp(28px, 5vw, 64px); }
+.onboarding-eyebrow { color: var(--accent-hot); font-size: clamp(12px, 1vw, 16px); font-weight: 800; letter-spacing: .2em; }
+.onboarding-content h2 { margin: 18px 0 16px; font-size: clamp(32px, 4vw, 54px); line-height: 1.05; }
+.onboarding-intro { margin: 0; color: rgba(255,255,255,.78); font-size: clamp(18px, 1.65vw, 24px); line-height: 1.45; }
+.onboarding-step { display: flex; align-items: center; gap: clamp(18px, 3vw, 34px); margin: clamp(28px, 4vh, 42px) 0; padding: clamp(20px, 3vw, 32px); border: 1px solid rgba(240,184,75,.32); border-radius: 18px; background: rgba(240,184,75,.08); }
+.onboarding-wand { flex: 0 0 auto; font-size: clamp(42px, 6vw, 76px); }
+.onboarding-step p { margin: 0; font-size: clamp(19px, 2vw, 29px); line-height: 1.45; }
+.onboarding-countdown { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin: 0 0 28px; color: rgba(255,255,255,.7); font-size: clamp(14px, 1.2vw, 18px); }
+.onboarding-countdown strong { color: var(--accent-hot); font-size: clamp(22px, 2vw, 30px); font-variant-numeric: tabular-nums; }
+.onboarding-countdown[hidden] { display: none; }
+.onboarding-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 14px; }
+.onboarding-actions button { min-height: 64px; padding: 14px 26px; border-radius: 12px; font-size: clamp(16px, 1.35vw, 20px); font-weight: 750; cursor: pointer; }
+.onboarding-back { border: 1px solid rgba(255,255,255,.28); color: #fff; background: rgba(255,255,255,.06); }
+.onboarding-continue { border: 1px solid #ffe49b; color: #17120a; background: linear-gradient(180deg, #ffe49b, #e8a92f); }
+.onboarding-actions button:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
+@media (max-width: 600px) {
+  .museum-onboarding { width: calc(100vw - 28px); border-radius: 18px; }
+  .onboarding-content { padding: 24px 20px; }
+  .onboarding-step { align-items: flex-start; }
+  .onboarding-actions { flex-direction: column-reverse; }
+  .onboarding-actions button { width: 100%; }
+}
