@@ -2,8 +2,9 @@
 set -euo pipefail
 
 # First-time deployment bootstrap for a dedicated Ubuntu 24.04 museum kiosk.
-# Download, inspect, then run with sudo:
-#   sudo bash instant-setup.sh
+# Run either way; root privileges are acquired automatically:
+#   bash instant-setup.sh
+#   wget -O - https://raw.githubusercontent.com/amesk/yaPDP-kiosk/master/instant-setup.sh | bash
 #
 # Refs are deliberately pinned. Update them only after validating a new release.
 
@@ -11,14 +12,15 @@ if [[ "$#" -gt 0 ]]; then
   case "$1" in
     -h|--help)
       cat <<'USAGE'
-Usage: sudo bash instant-setup.sh
+Usage: bash instant-setup.sh
+       wget -O - <url>/instant-setup.sh | bash
 
 The setup wizard uses dialog. Installation phases and command output
 are printed to the terminal and saved to the detailed log.
 USAGE
       exit 0
       ;;
-    *) echo "Unknown option: $1" >&2; echo "Usage: sudo bash $0" >&2; exit 2 ;;
+    *) echo "Unknown option: $1" >&2; echo "Usage: bash $0" >&2; exit 2 ;;
   esac
 fi
 
@@ -35,9 +37,77 @@ IDLE_TIMEOUT="${IDLE_TIMEOUT:-180}"
 IDLE_REDIRECT="${IDLE_REDIRECT:-/}"
 INSTALL_PLYMOUTH="${INSTALL_PLYMOUTH:-0}"
 
+# Escalate before any privileged phase: every step below expects root, so a
+# regular user is re-executed through sudo inside a single privileged process.
+# The script is never left to the operator to save by hand: it re-opens its own
+# file when one exists, and fetches its own URL when it was piped into bash.
 if [[ "$EUID" -ne 0 ]]; then
-  echo "Run with sudo: sudo bash $0" >&2
-  exit 1
+  if ! command -v sudo >/dev/null 2>&1; then
+    echo "Root privileges are required and sudo is not installed." >&2
+    echo "Re-run as root, for example: su -c 'bash $0'" >&2
+    exit 1
+  fi
+
+  # Guard against an endless retry loop if sudo does not deliver root.
+  if [[ "${YAPDP_BOOTSTRAP_ESCALATED:-0}" == "1" ]]; then
+    echo "Privilege escalation did not take effect; aborting instead of retrying." >&2
+    exit 1
+  fi
+
+  # sudo resets the environment, so forward only the documented overrides.
+  escalate_env=(YAPDP_BOOTSTRAP_ESCALATED=1)
+  for escalate_var in YAPDP_REPO_URL KIOSK_REPO_URL YAPDP_REF KIOSK_REF \
+                      KIOSK_USER IDLE_TIMEOUT IDLE_REDIRECT INSTALL_PLYMOUTH NONINTERACTIVE; do
+    if [[ -n "${!escalate_var:-}" ]]; then
+      escalate_env+=("$escalate_var=${!escalate_var}")
+    fi
+  done
+
+  # Prefer re-running the very file that is on disk (saved or cloned copy).
+  escalate_script=""
+  if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
+    escalate_script="$(readlink -f -- "${BASH_SOURCE[0]}" 2>/dev/null || true)"
+    [[ -f "$escalate_script" && -r "$escalate_script" ]] || escalate_script=""
+  fi
+
+  if [[ -n "$escalate_script" ]]; then
+    printf 'Root privileges are required; re-running %s through sudo...\n' "$escalate_script" >&2
+    exec sudo -- env "${escalate_env[@]}" bash "$escalate_script" "$@"
+  fi
+
+  # Piped start (wget -O - ... | bash): there is no file to re-open, so derive
+  # the download URL from the repository settings and fetch the same script as root.
+  escalate_url="${YAPDP_BOOTSTRAP_URL:-}"
+  if [[ -z "$escalate_url" ]]; then
+    case "$KIOSK_REPO_URL" in
+      https://github.com/*)
+        escalate_repo="${KIOSK_REPO_URL#https://github.com/}"
+        escalate_repo="${escalate_repo%.git}"
+        escalate_url="https://raw.githubusercontent.com/${escalate_repo}/${KIOSK_REF}/instant-setup.sh"
+        ;;
+    esac
+  fi
+  if [[ -z "$escalate_url" ]]; then
+    echo "Root privileges are required and this script was piped into bash, so it cannot re-run itself." >&2
+    echo "Set YAPDP_BOOTSTRAP_URL to its download URL, or run: wget -O - <url> | sudo bash" >&2
+    exit 1
+  fi
+
+  printf 'Root privileges are required; fetching %s and continuing through sudo...\n' "$escalate_url" >&2
+  exec sudo -- env "${escalate_env[@]}" YAPDP_BOOTSTRAP_URL="$escalate_url" \
+    bash -c 'set -euo pipefail
+      url="$1"; shift
+      tmp="$(mktemp "${TMPDIR:-/tmp}/yapdp-setup.XXXXXXXX.sh")"
+      trap "rm -f -- \$tmp" EXIT
+      if command -v wget >/dev/null 2>&1; then
+        wget -q -O "$tmp" "$url"
+      elif command -v curl >/dev/null 2>&1; then
+        curl -fsSL -o "$tmp" "$url"
+      else
+        echo "Neither wget nor curl is available to download $url" >&2
+        exit 1
+      fi
+      bash "$tmp" "$@"' _ "$escalate_url" "$@"
 fi
 
 # Keep the console clean; all command output is retained in a per-run log.

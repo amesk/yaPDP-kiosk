@@ -24,6 +24,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Slide captions moved above the footer row, so the progress bar no longer runs beneath the caption text and captions stay readable.
 - The launch-button arrow is an inline SVG instead of the `→` glyph, so it stays vertically centred regardless of which font the kiosk browser selects for the label.
 - Chrome's built-in translation prompt is disabled: the launcher passes `--disable-features=Translate,TranslateUI`, and the page declares `translate="no"` plus `notranslate`. A Russian exhibit page must never invite a visitor to translate the kiosk itself.
+- `instant-setup.sh` acquires root by itself instead of refusing to start: as a regular user it re-runs the same file through `sudo`, and when it was piped into `bash` it downloads itself to a temporary file as root. The URL comes from `YAPDP_BOOTSTRAP_URL` or is derived from `KIOSK_REPO_URL` and `KIOSK_REF`, and the `YAPDP_*`, `KIOSK_*`, `IDLE_*`, `INSTALL_PLYMOUTH`, `NONINTERACTIVE` overrides survive the escalation.
 
 ### Compatibility
 
