@@ -511,7 +511,7 @@ LOGIND
 # Install the independent keyboard observer and VT helpers.
 # The guard starts before GDM but does not lock VT switching until the kiosk
 # graphical session calls the helper, preserving GDM's startup hand-off.
-apt-get -o DPkg::Lock::Timeout=300 install -y python3-evdev
+yapdp_run_with_spinner "Installing keyboard event support" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y python3-evdev
 
 GUARD_DIR="/usr/local/lib/yapdp-kiosk"
 install -d -o root -g root -m 0755 "$GUARD_DIR"
