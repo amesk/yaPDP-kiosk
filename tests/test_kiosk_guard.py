@@ -11,12 +11,31 @@ from types import SimpleNamespace
 sys.modules.setdefault("evdev", SimpleNamespace(
     InputDevice=object, ecodes=SimpleNamespace(
         KEY_RIGHTCTRL=97, KEY_RIGHTALT=100, KEY_RIGHTSHIFT=54,
-        KEY_F9=67, KEY_F10=68, EV_KEY=1,
+        KEY_F1=59, KEY_F4=62, KEY_F5=63, KEY_F9=67, KEY_F10=68,
+        KEY_F11=87, KEY_F12=88, EV_KEY=1, EV_SYN=0, SYN_REPORT=0,
     ), list_devices=lambda: [],
 ))
 SPEC = importlib.util.spec_from_file_location("kiosk_guard", SCRIPT)
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
+
+
+class EventFilteringTests(unittest.TestCase):
+    def test_all_f1_to_f12_are_filtered(self):
+        class VirtualDevice:
+            def __init__(self):
+                self.events = []
+            def write(self, event_type, code, value):
+                self.events.append((event_type, code, value))
+            def syn(self):
+                self.events.append(("syn",))
+
+        virtual = VirtualDevice()
+        for key in range(59, 71):
+            MODULE.forward_event(virtual, SimpleNamespace(type=1, code=key, value=1))
+            MODULE.forward_event(virtual, SimpleNamespace(type=1, code=key, value=0))
+        MODULE.forward_event(virtual, SimpleNamespace(type=1, code=30, value=1))
+        self.assertEqual(virtual.events, [(1, 30, 1)])
 
 
 class SequenceRecognizerTests(unittest.TestCase):
