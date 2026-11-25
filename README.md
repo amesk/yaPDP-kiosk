@@ -294,10 +294,12 @@ The kiosk uses two cooperating components:
   Mutter shortcuts are cleared where installed schemas expose them, but this
   is supplementary hardening, not the VT security boundary.
 - `yapdp-kiosk-guard.service` is a root-owned Python process using Linux
-  `evdev`. It observes keyboard events without grabbing the keyboard, so Chrome
-  continues to receive normal input. It starts before GDM and monitors
-  hotplugged keyboards. The kiosk launcher locks Linux VT switching only after
-  the graphical session is running.
+  `evdev` and `uinput`. It grabs each physical keyboard and republishes its
+  events through a virtual keyboard, dropping F1-F12 before they reach GNOME or
+  Chrome. The guard still sees physical events first, so the service sequence
+  remains available. It starts before GDM and monitors hotplugged keyboards.
+  The kiosk launcher locks Linux VT switching only after the graphical session
+  is running.
 
 The local service sequence is:
 
@@ -305,7 +307,9 @@ The local service sequence is:
 2. Release all three modifiers.
 3. Within five seconds, press the three function keys shown in the root-only
    service-sequence file. The exact sequence is randomly generated per
-   installation and is not stored in the public repository. Retrieve it with:
+   installation and is not stored in the public repository. At the end of an
+   interactive installation, a staff-only hand-off screen displays it and asks
+   the operator to record it. The root-only file is also available later with:
 
    `sudo cat /root/yapdp-kiosk-service-sequence.txt`.
 
@@ -318,8 +322,8 @@ After maintenance, run `sudo reboot`. The marker is stored under `/run`, so it
 disappears at reboot. GDM then starts the kiosk session again and the launcher
 re-applies the VT lock before Chrome starts.
 
-The guard requires `python3-evdev`. It is supervised by systemd and logs to
-journald:
+The guard requires `python3-evdev` and the Linux `uinput` kernel module.
+It is supervised by systemd and logs to journald:
 
 ```bash
 journalctl -u yapdp-kiosk-guard.service
