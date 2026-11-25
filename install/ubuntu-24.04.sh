@@ -610,3 +610,6 @@ fi
 echo "The kiosk account is not an administrator; use a separate admin account for maintenance."
 echo "Detailed installation log: ${LOG_FILE:-$YAPDP_INSTALL_LOG}"
 yapdp_phase 100 "Kiosk installation completed."
+
+# Show the private service trigger after every installation message.
+bash "$KIOSK_DIR/scripts/show-service-sequence.sh"
