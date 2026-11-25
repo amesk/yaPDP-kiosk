@@ -524,7 +524,7 @@ install -o root -g root -m 0755 "$VT_LOCK_HELPER" /usr/local/sbin/yapdp-vt-switc
 
 # The kiosk account may request a lock but cannot unlock it.
 KIOSK_SUDOERS="/etc/sudoers.d/yapdp-kiosk-vt-lock"
-printf '%s ALL=(root) NOPASSWD: /usr/local/sbin/yapdp-vt-switch-lock lock\\n' "$KIOSK_USER" > "$KIOSK_SUDOERS"
+printf '%s ALL=(root) NOPASSWD: /usr/local/sbin/yapdp-vt-switch-lock lock\n' "$KIOSK_USER" > "$KIOSK_SUDOERS"
 chmod 0440 "$KIOSK_SUDOERS"
 if ! visudo -cf "$KIOSK_SUDOERS" >/dev/null; then
   rm -f "$KIOSK_SUDOERS"
