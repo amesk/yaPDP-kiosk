@@ -1,0 +1,27 @@
+[Unit]
+Description=yaPDP kiosk local keyboard service-mode guard
+After=systemd-udevd.service systemd-logind.service
+Before=display-manager.service
+ConditionPathExists=/usr/local/lib/yapdp-kiosk/kiosk-guard.py
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/yapdp-kiosk/kiosk-guard.py
+Restart=always
+RestartSec=2
+User=root
+Group=root
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/run
+DeviceAllow=/dev/input/event* r
+DeviceAllow=/dev/tty0 rw
+CapabilityBoundingSet=CAP_SYS_TTY_CONFIG
+AmbientCapabilities=CAP_SYS_TTY_CONFIG
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+[Install]
+WantedBy=multi-user.target
