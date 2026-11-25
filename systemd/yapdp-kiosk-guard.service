@@ -7,7 +7,7 @@ ConditionPathExists=/usr/local/lib/yapdp-kiosk/kiosk-guard.py
 [Service]
 Type=simple
 ExecStart=/usr/bin/python3 /usr/local/lib/yapdp-kiosk/kiosk-guard.py
-Restart=always
+Restart=on-failure
 RestartSec=2
 User=root
 Group=root
