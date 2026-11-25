@@ -288,30 +288,43 @@ curl -I http://127.0.0.1:8080/yapdp/pdp11.html
 
 ### Physical-access hardening
 
-The installer also closes the keyboard paths that do not depend on the browser
-or the compositor:
+The installer closes keyboard paths that do not depend on the browser or the
+compositor:
 
-- `org.gnome.mutter.keybindings switch-to-session-1..12` is cleared for the
-  kiosk account before the session starts, so **Ctrl+Alt+F1..F12** cannot leave
-  the GNOME Kiosk session for the GDM greeter or a spare virtual terminal.
-  `start-kiosk.sh` re-applies the same setting at every browser launch. The keys
-  are only written when the running mutter schema actually ships them
-  (gnome-kiosk may not); the installer treats this as best-effort hardening and
-  never fails because a key is absent.
-- `/etc/sysctl.d/90-yapdp-kiosk.conf` sets `kernel.sysrq = 0`, so Magic SysRq
-  (for example Alt+SysRq+B, Alt+SysRq+K) cannot reset the machine or kill the
-  exhibit session.
+- After the GNOME Kiosk graphical session has started, `start-kiosk.sh` invokes
+  the root-owned `/usr/local/sbin/yapdp-vt-switch-lock lock` helper. It uses
+  Linux `VT_LOCKSWITCH`, so **Ctrl+Alt+F1..F12** cannot switch to a text
+  console or the GDM greeter even when Mutter does not expose the
+  `switch-to-session-N` keybindings. The kiosk account can request the lock,
+  but cannot unlock it.
+- VT switching is locked system-wide, not just for the kiosk user. Local VT
+  switching (including an administrator's local-console escape route) remains
+  disabled until reboot or an administrator explicitly unlocks it. Keep SSH
+  or another out-of-band administrative route available.
+- The logind drop-in sets `NAutoVTs=0` and `ReserveVT=0`, preventing logind
+  from creating spare autovt gettys. This is defence in depth; it does not
+  replace the kernel VT lock.
+- Mutter's `switch-to-session-1..12` shortcuts are still cleared when those
+  keys exist, but this is supplementary rather than the security boundary.
+- `/etc/sysctl.d/90-yapdp-kiosk.conf` sets `kernel.sysrq = 0`, so Magic
+  SysRq (for example Alt+SysRq+B, Alt+SysRq+K) cannot reset the machine or kill
+  the exhibit session.
 - `ctrl-alt-del.target` is masked, so **Ctrl+Alt+Del** no longer reboots the
   exhibit.
 - `/etc/systemd/logind.conf.d/90-yapdp-kiosk.conf` ignores the hardware power,
   reboot, suspend, and hibernate keys. A ~4 second power-button hold is handled
   by the firmware and still switches the machine off.
 
-These are deliberate, reversible system settings; the logind part takes effect
-after the next reboot. Undo them with:
+The VT lock is applied when the kiosk launcher starts; the logind settings take
+effect after reboot. **Do not rely on the local keyboard for recovery.** From
+an administrator SSH session, unlock VT switching first, then undo the
+settings:
 
 ```bash
+sudo /usr/local/sbin/yapdp-vt-switch-lock unlock
 sudo systemctl unmask ctrl-alt-del.target
+sudo rm -f /etc/sudoers.d/yapdp-kiosk-vt-lock
+sudo rm -f /usr/local/sbin/yapdp-vt-switch-lock
 sudo rm -f /etc/sysctl.d/90-yapdp-kiosk.conf /etc/systemd/logind.conf.d/90-yapdp-kiosk.conf
 sudo sysctl kernel.sysrq=1
 sudo systemctl restart systemd-logind
