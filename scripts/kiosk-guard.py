@@ -133,7 +133,7 @@ def enter_service_mode():
     logging.warning("Local maintenance console is available on tty3")
 
 
-def is_keyboard(device):
+def is_keyboard(device, sequence):
     try:
         keys = set(device.capabilities().get(ecodes.EV_KEY, []))
         return bool(keys & (set(MODIFIERS) | set(sequence)))
@@ -195,7 +195,7 @@ def main():
             for path in current - set(devices):
                 try:
                     device = InputDevice(path)
-                    if is_keyboard(device):
+                    if is_keyboard(device, sequence):
                         devices[path] = device
                         recognizers[path] = SequenceRecognizer(sequence)
                         logging.info("Keyboard attached: %s (%s)", path, device.name)
