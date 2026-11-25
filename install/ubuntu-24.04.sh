@@ -491,12 +491,7 @@ PY
 
 yapdp_phase 85 "Hardening the kiosk against local key combinations..."
 
-# During a kiosk session the compositor's own shortcuts are disabled by
-# start-kiosk.sh, but three paths stay open to anyone touching the machine:
-# Magic SysRq (Alt+SysRq+B resets the box immediately, Alt+SysRq+K kills the
-# session), Ctrl+Alt+Del (clean reboot) and the power/reboot keys handled by
-# systemd-logind. None of them are needed by a visitor. A ~4 second hold of the
-# power button is handled by the firmware and still switches the machine off.
+# Disable kernel SysRq and the standard Ctrl+Alt+Del reboot path.
 KIOSK_LOGIND_DROPIN="/etc/systemd/logind.conf.d/90-yapdp-kiosk.conf"
 install -d -m 0755 "/etc/systemd/logind.conf.d"
 cat > "$KIOSK_LOGIND_DROPIN" <<'LOGIND'
@@ -508,7 +503,32 @@ HandlePowerKeyLongPress=poweroff
 HandleRebootKey=ignore
 HandleSuspendKey=ignore
 HandleHibernateKey=ignore
+# Do not spawn spare gettys automatically; service guard starts tty3 explicitly.
+NAutoVTs=0
+ReserveVT=0
 LOGIND
+
+# Install the independent keyboard observer and VT helpers.
+# The guard starts before GDM but does not lock VT switching until the kiosk
+# graphical session calls the helper, preserving GDM's startup hand-off.
+apt-get -o DPkg::Lock::Timeout=300 install -y python3-evdev
+
+GUARD_DIR="/usr/local/lib/yapdp-kiosk"
+install -d -o root -g root -m 0755 "$GUARD_DIR"
+install -o root -g root -m 0755 "$KIOSK_DIR/scripts/kiosk-guard.py" "$GUARD_DIR/kiosk-guard.py"
+install -o root -g root -m 0755 "$KIOSK_DIR/scripts/vt-switch-lock.py" /usr/local/sbin/yapdp-vt-switch-lock
+install -o root -g root -m 0644 "$KIOSK_DIR/systemd/yapdp-kiosk-guard.service" /etc/systemd/system/yapdp-kiosk-guard.service
+
+KIOSK_SUDOERS="/etc/sudoers.d/yapdp-kiosk-vt-lock"
+printf '%s ALL=(root) NOPASSWD: /usr/local/sbin/yapdp-vt-switch-lock lock\\n' "$KIOSK_USER" > "$KIOSK_SUDOERS"
+chmod 0440 "$KIOSK_SUDOERS"
+if ! visudo -cf "$KIOSK_SUDOERS" >/dev/null; then
+  rm -f "$KIOSK_SUDOERS"
+  echo "Invalid sudoers rule for the virtual-terminal lock." >&2
+  exit 1
+fi
+systemctl daemon-reload
+systemctl enable yapdp-kiosk-guard.service
 
 KIOSK_SYSCTL_DROPIN="/etc/sysctl.d/90-yapdp-kiosk.conf"
 cat > "$KIOSK_SYSCTL_DROPIN" <<'SYSCTL'
@@ -526,13 +546,14 @@ yapdp_phase 95 "Enabling the local web server and finalizing setup..."
 
 systemctl enable --now nginx
 systemctl reload nginx
+systemctl start yapdp-kiosk-guard.service
 
 echo
 echo "yaPDP kiosk nginx site installed."
 echo "Kiosk account: $KIOSK_USER"
 echo "GNOME Kiosk Wayland session selected for GDM automatic login."
 echo "GDM automatic login enabled for that account (effective after reboot)."
-echo "Keyboard hardening: SysRq disabled, Ctrl+Alt+Del masked, power/reboot keys ignored."
+echo "Keyboard guard: active; local service sequence is Right Ctrl+Right Alt+Right Shift (3s), release, F9-F10-F9."
 echo "Kiosk URL: http://127.0.0.1:8080/"
 echo "yaPDP URL: http://127.0.0.1:8080/yapdp/pdp11.html"
 if ! command -v google-chrome-stable >/dev/null 2>&1 &&
