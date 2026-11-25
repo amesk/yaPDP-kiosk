@@ -28,7 +28,7 @@ class SequenceRecognizerTests(unittest.TestCase):
             recognizer.feed(key, 0, now + 3.2)
 
     def test_accepts_service_sequence_after_hold(self):
-        recognizer = MODULE.SequenceRecognizer()
+        recognizer = MODULE.SequenceRecognizer((67, 68, 67))
         self.chord(recognizer)
         self.assertFalse(recognizer.feed(67, 1, 3.3))
         recognizer.feed(67, 0, 3.4)
@@ -37,26 +37,26 @@ class SequenceRecognizerTests(unittest.TestCase):
         self.assertTrue(recognizer.feed(67, 1, 3.7))
 
     def test_short_hold_is_rejected(self):
-        recognizer = MODULE.SequenceRecognizer()
+        recognizer = MODULE.SequenceRecognizer((67, 68, 67))
         for key in (97, 100, 54):
             recognizer.feed(key, 1, 0.0)
         recognizer.feed(97, 0, 1.0)
         self.assertFalse(recognizer.feed(67, 1, 1.1))
 
     def test_wrong_key_resets_confirmation(self):
-        recognizer = MODULE.SequenceRecognizer()
+        recognizer = MODULE.SequenceRecognizer((67, 68, 67))
         self.chord(recognizer)
         self.assertFalse(recognizer.feed(68, 1, 3.3))
         self.assertEqual(recognizer.stage, "idle")
 
     def test_key_repeat_does_not_advance_sequence(self):
-        recognizer = MODULE.SequenceRecognizer()
+        recognizer = MODULE.SequenceRecognizer((67, 68, 67))
         self.chord(recognizer)
         self.assertFalse(recognizer.feed(67, 2, 3.3))
         self.assertEqual(recognizer.sequence_index, 0)
 
     def test_sequence_timeout_resets(self):
-        recognizer = MODULE.SequenceRecognizer()
+        recognizer = MODULE.SequenceRecognizer((67, 68, 67))
         self.chord(recognizer)
         recognizer.tick(9.0)
         self.assertEqual(recognizer.stage, "idle")
