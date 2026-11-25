@@ -508,7 +508,29 @@ HandlePowerKeyLongPress=poweroff
 HandleRebootKey=ignore
 HandleSuspendKey=ignore
 HandleHibernateKey=ignore
+# Prevent logind from spawning spare autovt gettys. This is defence in depth.
+NAutoVTs=0
+ReserveVT=0
 LOGIND
+
+# Install the root-owned helper used to lock Linux virtual-terminal switching.
+# It is called by start-kiosk.sh only after the graphical kiosk session starts.
+VT_LOCK_HELPER="$KIOSK_DIR/scripts/vt-switch-lock.py"
+if [[ ! -f "$VT_LOCK_HELPER" ]]; then
+  echo "Virtual-terminal lock helper is missing: $VT_LOCK_HELPER" >&2
+  exit 1
+fi
+install -o root -g root -m 0755 "$VT_LOCK_HELPER" /usr/local/sbin/yapdp-vt-switch-lock
+
+# The kiosk account may request a lock but cannot unlock it.
+KIOSK_SUDOERS="/etc/sudoers.d/yapdp-kiosk-vt-lock"
+printf '%s ALL=(root) NOPASSWD: /usr/local/sbin/yapdp-vt-switch-lock lock\\n' "$KIOSK_USER" > "$KIOSK_SUDOERS"
+chmod 0440 "$KIOSK_SUDOERS"
+if ! visudo -cf "$KIOSK_SUDOERS" >/dev/null; then
+  rm -f "$KIOSK_SUDOERS"
+  echo "Invalid sudoers rule for the virtual-terminal lock." >&2
+  exit 1
+fi
 
 KIOSK_SYSCTL_DROPIN="/etc/sysctl.d/90-yapdp-kiosk.conf"
 cat > "$KIOSK_SYSCTL_DROPIN" <<'SYSCTL'
@@ -532,7 +554,8 @@ echo "yaPDP kiosk nginx site installed."
 echo "Kiosk account: $KIOSK_USER"
 echo "GNOME Kiosk Wayland session selected for GDM automatic login."
 echo "GDM automatic login enabled for that account (effective after reboot)."
-echo "Keyboard hardening: SysRq disabled, Ctrl+Alt+Del masked, power/reboot keys ignored."
+echo "Keyboard hardening: VT switching locked in kiosk session, spare autovt gettys disabled, SysRq disabled, Ctrl+Alt+Del masked, power/reboot keys ignored."
+echo "VT recovery over SSH: sudo /usr/local/sbin/yapdp-vt-switch-lock unlock"
 echo "Kiosk URL: http://127.0.0.1:8080/"
 echo "yaPDP URL: http://127.0.0.1:8080/yapdp/pdp11.html"
 if ! command -v google-chrome-stable >/dev/null 2>&1 &&
