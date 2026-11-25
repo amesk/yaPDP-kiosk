@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 
 try:
-    from evdev import InputDevice, UInput, ecodes, list_devices
+    from evdev import InputDevice, ecodes, list_devices
 except ImportError as exc:  # pragma: no cover - exercised by service startup
     raise SystemExit("python3-evdev is required: apt install python3-evdev") from exc
 
@@ -29,9 +29,7 @@ MODIFIERS = frozenset((ecodes.KEY_RIGHTCTRL, ecodes.KEY_RIGHTALT, ecodes.KEY_RIG
 HOLD_SECONDS = 3.0
 SEQUENCE_SECONDS = 5.0
 SCAN_SECONDS = 1.0
-FUNCTION_KEYS = frozenset(
-    getattr(ecodes, f"KEY_F{number}") for number in range(1, 13)
-)
+FUNCTION_KEYS = frozenset((*range(59, 69), 87, 88))
 
 
 class SequenceRecognizer:
@@ -126,6 +124,8 @@ def forward_event(virtual_device, event):
 
 def create_keyboard_proxy(device):
     """Grab a physical keyboard and expose a filtered virtual replacement."""
+    from evdev import UInput
+
     virtual_device = UInput.from_device(
         device,
         name=f"yaPDP filtered keyboard ({device.name})",
