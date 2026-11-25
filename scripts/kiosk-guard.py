@@ -232,6 +232,12 @@ def main():
                     logging.debug("Cannot open input device %s: %s", path, exc)
                     continue
 
+                # Our own uinput keyboards are visible in list_devices(); never
+                # proxy them again or the virtual-device chain would grow forever.
+                if device.name.startswith("yaPDP filtered keyboard ("):
+                    device.close()
+                    continue
+
                 if is_keyboard(device, sequence):
                     try:
                         virtual = create_keyboard_proxy(device)
