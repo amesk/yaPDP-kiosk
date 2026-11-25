@@ -227,16 +227,25 @@ def main():
             for path in current - set(devices):
                 try:
                     device = InputDevice(path)
-                    if is_keyboard(device, sequence):
-                        virtual = create_keyboard_proxy(device)
-                        devices[path] = device
-                        virtual_devices[path] = virtual
-                        recognizers[path] = SequenceRecognizer(sequence)
-                        logging.info("Keyboard attached and proxied: %s (%s)", path, device.name)
-                    else:
-                        device.close()
                 except OSError as exc:
+                    # A hot-unplug can race list_devices(); retry on the next scan.
                     logging.debug("Cannot open input device %s: %s", path, exc)
+                    continue
+
+                if is_keyboard(device, sequence):
+                    try:
+                        virtual = create_keyboard_proxy(device)
+                    except Exception as exc:
+                        device.close()
+                        # Do not silently run with an unfiltered physical keyboard.
+                        logging.exception("Cannot install the F-key filter for %s", path)
+                        raise RuntimeError(f"Keyboard filtering unavailable for {path}") from exc
+                    devices[path] = device
+                    virtual_devices[path] = virtual
+                    recognizers[path] = SequenceRecognizer(sequence)
+                    logging.info("Keyboard attached and proxied: %s (%s)", path, device.name)
+                else:
+                    device.close()
 
         if not devices:
             time.sleep(0.25)
