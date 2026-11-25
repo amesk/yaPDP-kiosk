@@ -31,7 +31,7 @@ class EventFilteringTests(unittest.TestCase):
                 self.events.append(("syn",))
 
         virtual = VirtualDevice()
-        for key in range(59, 71):
+        for key in (*range(59, 69), 87, 88):
             MODULE.forward_event(virtual, SimpleNamespace(type=1, code=key, value=1))
             MODULE.forward_event(virtual, SimpleNamespace(type=1, code=key, value=0))
         MODULE.forward_event(virtual, SimpleNamespace(type=1, code=30, value=1))
