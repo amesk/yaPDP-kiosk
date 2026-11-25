@@ -1,9 +1,9 @@
 #!/usr/bin/python3
 """Local keyboard service-mode guard for the yaPDP museum kiosk.
 
-The process observes (does not grab) Linux evdev keyboard events. In kiosk
-mode, Right Ctrl + Right Alt + Right Shift held for three seconds, followed
-by F9, F10, F9, stops the graphical display manager and exposes tty3.
+The process grabs physical keyboards and republishes their events through
+uinput, suppressing F1-F12 before they reach the graphical session. It also
+recognizes the local service sequence from the physical events.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 
 try:
-    from evdev import InputDevice, ecodes, list_devices
+    from evdev import InputDevice, UInput, ecodes, list_devices
 except ImportError as exc:  # pragma: no cover - exercised by service startup
     raise SystemExit("python3-evdev is required: apt install python3-evdev") from exc
 
@@ -29,6 +29,9 @@ MODIFIERS = frozenset((ecodes.KEY_RIGHTCTRL, ecodes.KEY_RIGHTALT, ecodes.KEY_RIG
 HOLD_SECONDS = 3.0
 SEQUENCE_SECONDS = 5.0
 SCAN_SECONDS = 1.0
+FUNCTION_KEYS = frozenset(
+    getattr(ecodes, f"KEY_F{number}") for number in range(1, 13)
+)
 
 
 class SequenceRecognizer:
@@ -110,6 +113,31 @@ class SequenceRecognizer:
         return False
 
 
+def forward_event(virtual_device, event):
+    """Forward one physical event, except F1-F12 and their key releases."""
+    if event.type == ecodes.EV_KEY and event.code in FUNCTION_KEYS:
+        return
+    if event.type == ecodes.EV_SYN:
+        if event.code == ecodes.SYN_REPORT:
+            virtual_device.syn()
+        return
+    virtual_device.write(event.type, event.code, event.value)
+
+
+def create_keyboard_proxy(device):
+    """Grab a physical keyboard and expose a filtered virtual replacement."""
+    virtual_device = UInput.from_device(
+        device,
+        name=f"yaPDP filtered keyboard ({device.name})",
+    )
+    try:
+        device.grab()
+    except Exception:
+        virtual_device.close()
+        raise
+    return virtual_device
+
+
 def unlock_vt_switching():
     fd = os.open(VT_DEVICE, os.O_RDWR | os.O_NOCTTY)
     try:
@@ -167,10 +195,11 @@ def main():
         handlers=[logging.StreamHandler(sys.stdout)],
     )
     sequence = load_service_sequence()
-    logging.info("Keyboard guard started; observing evdev keyboards without grabbing them")
+    logging.info("Keyboard guard started; F1-F12 are filtered before reaching the kiosk session")
     logging.info("Local service trigger loaded from root-owned configuration")
 
     devices = {}
+    virtual_devices = {}
     recognizers = {}
     triggered = False
     next_scan = 0.0
@@ -189,6 +218,9 @@ def main():
                 if path not in current:
                     devices[path].close()
                     del devices[path]
+                    virtual = virtual_devices.pop(path, None)
+                    if virtual is not None:
+                        virtual.close()
                     recognizers.pop(path, None)
                     logging.info("Keyboard disconnected: %s", path)
 
@@ -196,9 +228,11 @@ def main():
                 try:
                     device = InputDevice(path)
                     if is_keyboard(device, sequence):
+                        virtual = create_keyboard_proxy(device)
                         devices[path] = device
+                        virtual_devices[path] = virtual
                         recognizers[path] = SequenceRecognizer(sequence)
-                        logging.info("Keyboard attached: %s (%s)", path, device.name)
+                        logging.info("Keyboard attached and proxied: %s (%s)", path, device.name)
                     else:
                         device.close()
                 except OSError as exc:
@@ -224,16 +258,20 @@ def main():
                 continue
             try:
                 for event in device.read():
-                    if event.type != ecodes.EV_KEY:
-                        continue
-                    recognizer = recognizers[path]
-                    if recognizer.feed(event.code, event.value, now):
-                        triggered = True
+                    if event.type == ecodes.EV_KEY:
+                        recognizer = recognizers[path]
+                        if recognizer.feed(event.code, event.value, now):
+                            triggered = True
+                    forward_event(virtual_devices[path], event)
+                    if triggered:
                         break
             except OSError as exc:
                 logging.warning("Keyboard read failed for %s: %s", path, exc)
                 device.close()
                 devices.pop(path, None)
+                virtual = virtual_devices.pop(path, None)
+                if virtual is not None:
+                    virtual.close()
                 recognizers.pop(path, None)
             if triggered:
                 break
