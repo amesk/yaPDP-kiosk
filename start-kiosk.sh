@@ -86,6 +86,15 @@ disable_idle_lock() {
 disable_gnome_shortcuts
 disable_idle_lock
 
+# Lock Linux VT switching from the already-running graphical session.
+# The kiosk account can request the lock but cannot unlock it. Keep SSH/admin
+# access available for recovery. Fail closed if the kernel ioctl is unavailable.
+if ! command -v sudo >/dev/null 2>&1 ||
+   ! sudo -n /usr/local/sbin/yapdp-vt-switch-lock lock; then
+  echo "Could not lock virtual-terminal switching; refusing to start the kiosk browser." >&2
+  exit 1
+fi
+
 # Chrome's kiosk flag is presentation, not process supervision. If a visitor
 # closes it (Alt+F4, Ctrl+Q, etc.), relaunch it instead of leaving the desktop
 # exposed. A short delay avoids a tight loop if Chrome cannot start.
