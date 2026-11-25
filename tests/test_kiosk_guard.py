@@ -9,10 +9,10 @@ import sys
 from types import SimpleNamespace
 
 sys.modules.setdefault("evdev", SimpleNamespace(
-    InputDevice=object, ecodes=SimpleNamespace(
+    InputDevice=object, UInput=object, ecodes=SimpleNamespace(
         KEY_RIGHTCTRL=97, KEY_RIGHTALT=100, KEY_RIGHTSHIFT=54,
-        KEY_F1=59, KEY_F4=62, KEY_F5=63, KEY_F9=67, KEY_F10=68,
-        KEY_F11=87, KEY_F12=88, EV_KEY=1, EV_SYN=0, SYN_REPORT=0,
+        KEY_F1=59, KEY_F2=60, KEY_F3=61, KEY_F4=62, KEY_F5=63,
+        KEY_F6=64, KEY_F7=65, KEY_F8=66, KEY_F9=67, KEY_F10=68, KEY_F11=87, KEY_F12=88, EV_KEY=1, EV_SYN=0, SYN_REPORT=0,
     ), list_devices=lambda: [],
 ))
 SPEC = importlib.util.spec_from_file_location("kiosk_guard", SCRIPT)
