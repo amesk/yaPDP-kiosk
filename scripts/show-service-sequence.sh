@@ -33,7 +33,8 @@ if [[ -r /dev/tty && -w /dev/tty ]] && command -v dialog >/dev/null 2>&1; then
   dialog --clear --title "yaPDP Kiosk — STAFF ONLY" --msgbox "$MESSAGE" 18 76 < /dev/tty > /dev/tty || true
 elif [[ -r /dev/tty && -w /dev/tty ]]; then
   printf '\n%s\n\n' "$MESSAGE" > /dev/tty
-  read -r -p "Press Enter after recording the service sequence... " _ < /dev/tty || true
+  printf 'Press Enter after recording the service sequence... ' > /dev/tty
+  read -r _ < /dev/tty || true
 else
   echo "Retrieve the service sequence locally with: sudo cat $SEQUENCE_FILE"
 fi
