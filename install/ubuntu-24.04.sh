@@ -512,6 +512,9 @@ LOGIND
 # The guard starts before GDM but does not lock VT switching until the kiosk
 # graphical session calls the helper, preserving GDM's startup hand-off.
 yapdp_run_with_spinner "Installing keyboard event support" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y python3-evdev
+modprobe uinput
+install -d -m 0755 /etc/modules-load.d
+printf 'uinput\\n' > /etc/modules-load.d/yapdp-kiosk.conf
 
 # Generate a per-install service sequence once. Re-running the installer keeps
 # the existing code; it is never embedded in the public repository.
