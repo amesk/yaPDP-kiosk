@@ -548,12 +548,11 @@ else:
     )
     os.chmod(config, 0o600)
 
-if not handoff.exists():
-    handoff.write_text(
-        "yaPDP kiosk local service sequence (keep private):\n"
-        + " -> ".join(key.removeprefix("KEY_") for key in keys) + "\n",
-        encoding="ascii"
-    )
+handoff.write_text(
+    "yaPDP kiosk local service sequence (keep private):\n"
+    + " -> ".join(key.removeprefix("KEY_") for key in keys) + "\n",
+    encoding="ascii"
+)
 os.chmod(handoff, 0o600)
 PY
 chown root:root "$GUARD_CONFIG_DIR/guard.conf"
