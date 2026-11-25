@@ -286,42 +286,59 @@ curl -I http://127.0.0.1:8080/yapdp/pdp11.html
 - The Windows launcher is intentionally not maintained; Ubuntu 24.04 is the
   supported deployment target.
 
-### Physical-access hardening
+### Physical-access hardening and local service mode
 
-The installer also closes the keyboard paths that do not depend on the browser
-or the compositor:
+The kiosk uses two cooperating components:
 
-- `org.gnome.mutter.keybindings switch-to-session-1..12` is cleared for the
-  kiosk account before the session starts, so **Ctrl+Alt+F1..F12** cannot leave
-  the GNOME Kiosk session for the GDM greeter or a spare virtual terminal.
-  `start-kiosk.sh` re-applies the same setting at every browser launch. The keys
-  are only written when the running mutter schema actually ships them
-  (gnome-kiosk may not); the installer treats this as best-effort hardening and
-  never fails because a key is absent.
-- `/etc/sysctl.d/90-yapdp-kiosk.conf` sets `kernel.sysrq = 0`, so Magic SysRq
-  (for example Alt+SysRq+B, Alt+SysRq+K) cannot reset the machine or kill the
-  exhibit session.
-- `ctrl-alt-del.target` is masked, so **Ctrl+Alt+Del** no longer reboots the
-  exhibit.
-- `/etc/systemd/logind.conf.d/90-yapdp-kiosk.conf` ignores the hardware power,
-  reboot, suspend, and hibernate keys. A ~4 second power-button hold is handled
-  by the firmware and still switches the machine off.
+- GNOME Kiosk runs the visitor application in its dedicated Wayland session.
+  Mutter shortcuts are cleared where installed schemas expose them, but this
+  is supplementary hardening, not the VT security boundary.
+- `yapdp-kiosk-guard.service` is a root-owned Python process using Linux
+  `evdev`. It observes keyboard events without grabbing the keyboard, so Chrome
+  continues to receive normal input. It starts before GDM and monitors
+  hotplugged keyboards. The kiosk launcher locks Linux VT switching only after
+  the graphical session is running.
 
-These are deliberate, reversible system settings; the logind part takes effect
-after the next reboot. Undo them with:
+The local service sequence is:
+
+1. Hold **Right Ctrl + Right Alt + Right Shift** together for three seconds.
+2. Release all three modifiers.
+3. Within five seconds, press **F9, F10, F9**.
+
+The guard starts a login prompt on tty3, stops the graphical display manager,
+unlocks VT switching, and switches to tty3. The administrator signs in using
+the separate local Ubuntu account. The sequence is a convenience trigger, not
+authentication; the administrator password remains the security boundary.
+
+After maintenance, run `sudo reboot`. The marker is stored under `/run`, so it
+disappears at reboot. GDM then starts the kiosk session again and the launcher
+re-applies the VT lock before Chrome starts.
+
+The guard requires `python3-evdev`. It is supervised by systemd and logs to
+journald:
 
 ```bash
-sudo systemctl unmask ctrl-alt-del.target
-sudo rm -f /etc/sysctl.d/90-yapdp-kiosk.conf /etc/systemd/logind.conf.d/90-yapdp-kiosk.conf
-sudo sysctl kernel.sysrq=1
-sudo systemctl restart systemd-logind
+journalctl -u yapdp-kiosk-guard.service
+systemctl status yapdp-kiosk-guard.service
 ```
 
-None of this protects against firmware-level access: set a BIOS/UEFI
-administrator password, disable booting from removable media, and secure the
-chassis if the machine is reachable by visitors. The kiosk account is also
-locked (no usable password), so a getty prompt on an unused virtual terminal is
-not a usable way in.
+The installer also applies defence-in-depth settings:
+
+- `NAutoVTs=0` and `ReserveVT=0` prevent logind from creating spare autovt
+  gettys automatically. The guard explicitly starts tty3 for service.
+- `kernel.sysrq = 0` disables Magic SysRq.
+- `ctrl-alt-del.target` is masked.
+- logind ignores power, reboot, suspend, and hibernate keys. A long hardware
+  power-button hold remains a firmware-level power-off path.
+
+The VT lock is system-wide. The guard is the local unlock path; no network or
+SSH connection is required. SSH may be enabled separately for remote
+administration, but is not required for recovery.
+
+This does not protect firmware setup, bootloader editing, removable-media boot,
+or physical disk access. Set a BIOS/UEFI administrator password, disable
+external boot where appropriate, and secure the chassis.
+
 
 ## GitHub Pages
 
