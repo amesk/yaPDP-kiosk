@@ -26,7 +26,6 @@ VT_UNLOCKSWITCH = 0x560C
 VT_DEVICE = "/dev/tty0"
 SERVICE_MODE_MARKER = Path("/run/yapdp-kiosk-service-mode")
 MODIFIERS = frozenset((ecodes.KEY_RIGHTCTRL, ecodes.KEY_RIGHTALT, ecodes.KEY_RIGHTSHIFT))
-SERVICE_SEQUENCE = (ecodes.KEY_F9, ecodes.KEY_F10, ecodes.KEY_F9)
 HOLD_SECONDS = 3.0
 SEQUENCE_SECONDS = 5.0
 SCAN_SECONDS = 1.0
@@ -35,7 +34,8 @@ SCAN_SECONDS = 1.0
 class SequenceRecognizer:
     """Recognize the two-stage service chord on one physical keyboard."""
 
-    def __init__(self):
+    def __init__(self, sequence):
+        self.sequence = tuple(sequence)
         self.pressed = set()
         self.stage = "idle"
         self.hold_started = None
@@ -89,11 +89,11 @@ class SequenceRecognizer:
                 return False
 
             if self.stage == "sequence":
-                if code != SERVICE_SEQUENCE[self.sequence_index]:
+                if code != self.sequence[self.sequence_index]:
                     self.reset()
                     return False
                 self.sequence_index += 1
-                if self.sequence_index == len(SERVICE_SEQUENCE):
+                if self.sequence_index == len(self.sequence):
                     self.reset()
                     return True
                 return False
@@ -136,9 +136,28 @@ def enter_service_mode():
 def is_keyboard(device):
     try:
         keys = set(device.capabilities().get(ecodes.EV_KEY, []))
-        return bool(keys & (set(MODIFIERS) | set(SERVICE_SEQUENCE)))
+        return bool(keys & (set(MODIFIERS) | set(sequence)))
     except OSError:
         return False
+
+
+def load_service_sequence():
+    config = Path("/etc/yapdp-kiosk/guard.conf")
+    values = {}
+    for line in config.read_text(encoding="ascii").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        key, separator, value = line.partition("=")
+        if separator:
+            values[key.strip()] = value.strip()
+    names = values.get("service_sequence", "").split(",")
+    if len(names) != 3 or any(not name.startswith("KEY_F") for name in names):
+        raise RuntimeError(f"Invalid service_sequence in {config}")
+    try:
+        return tuple(getattr(ecodes, name) for name in names)
+    except AttributeError as exc:
+        raise RuntimeError(f"Unsupported key name in {config}: {exc}") from exc
 
 
 def main():
@@ -147,7 +166,9 @@ def main():
         format="%(asctime)s yapdp-kiosk-guard %(levelname)s: %(message)s",
         handlers=[logging.StreamHandler(sys.stdout)],
     )
+    sequence = load_service_sequence()
     logging.info("Keyboard guard started; observing evdev keyboards without grabbing them")
+    logging.info("Local service trigger loaded from root-owned configuration")
 
     devices = {}
     recognizers = {}
@@ -176,7 +197,7 @@ def main():
                     device = InputDevice(path)
                     if is_keyboard(device):
                         devices[path] = device
-                        recognizers[path] = SequenceRecognizer()
+                        recognizers[path] = SequenceRecognizer(sequence)
                         logging.info("Keyboard attached: %s (%s)", path, device.name)
                     else:
                         device.close()
