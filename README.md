@@ -303,7 +303,7 @@ The local service sequence is:
 
 1. Hold **Right Ctrl + Right Alt + Right Shift** together for three seconds.
 2. Release all three modifiers.
-3. Within five seconds, press **F9, F10, F9**.
+3. Within five seconds, press the three function keys shown in the root-only\n   service-sequence file. The exact sequence is randomly generated per\n   installation and is not stored in the public repository. Retrieve it with:\n\n   `sudo cat /root/yapdp-kiosk-service-sequence.txt`.
 
 The guard starts a login prompt on tty3, stops the graphical display manager,
 unlocks VT switching, and switches to tty3. The administrator signs in using
