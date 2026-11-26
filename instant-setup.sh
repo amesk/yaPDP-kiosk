@@ -604,6 +604,8 @@ YAPDP_PROGRESS_BASE=55 YAPDP_PROGRESS_SPAN=40 \
   bash "$INSTALL_ROOT/yaPDP-kiosk/install/ubuntu-24.04.sh"
 
 if [[ "$INSTALL_PLYMOUTH" == "1" ]]; then
+  # Start the optional Plymouth phase on a clean terminal, not over the progress dialog.
+  clear > /dev/tty 2>&1 || printf '\033[H\033[2J\033[3J' > /dev/tty 2>/dev/null || true
   show_phase 97 "Installing the optional Plymouth boot splash..."
   echo
   echo "Installing the optional yaPDP Plymouth boot splash..."
