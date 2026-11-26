@@ -29,6 +29,14 @@ YAPDP_REPO_URL="${YAPDP_REPO_URL:-https://github.com/amesk/yaPDP.git}"
 KIOSK_REPO_URL="${KIOSK_REPO_URL:-https://github.com/amesk/yaPDP-kiosk.git}"
 # Keep known-good revisions pinned by default. Forks can override the refs too.
 YAPDP_REF="${YAPDP_REF:-95dd47a9bab9a0a2854669197b077b3388dda09b}"
+
+# When this bootstrap was piped from a raw GitHub branch URL, use that same
+# branch for the installer repository unless the operator explicitly overrides
+# KIOSK_REF. Otherwise a feature-branch bootstrap could silently download the
+# child installer and its libraries from master.
+if [[ -z "${KIOSK_REF:-}" && "${YAPDP_BOOTSTRAP_URL:-}" =~ ^https://raw\.githubusercontent\.com/[^/]+/[^/]+/refs/heads/(.+)/instant-setup\.sh$ ]]; then
+  KIOSK_REF="${BASH_REMATCH[1]}"
+fi
 KIOSK_REF="${KIOSK_REF:-master}"
 readonly INSTALL_ROOT="/opt/yapdp-exhibit"
 
