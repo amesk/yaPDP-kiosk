@@ -41,7 +41,7 @@ paths = [
  f"/var/lib/AccountsService/users/{USER}",
 ]
 directories = ["/etc/yapdp-kiosk", "/etc/systemd/system/gdm3.service.d", "/etc/systemd/system/getty@tty3.service.d", "/etc/systemd/logind.conf.d", "/etc/sysctl.d", "/etc/modules-load.d", "/usr/local/lib/yapdp-kiosk", "/var/lib/AccountsService/users"]
-directory_state = {p: Path(p).is_dir() for p in directories}
+directory_state = {}\nfor raw in directories:\n    path = Path(raw)\n    if path.is_dir():\n        st = path.stat()\n        directory_state[raw] = {"exists": True, "mode": st.st_mode & 0o777, "uid": st.st_uid, "gid": st.st_gid}\n    else:\n        directory_state[raw] = {"exists": False}
 services = ["nginx.service", "gdm3.service", "yapdp-kiosk-guard.service", "getty@tty3.service"]
 account_existed = subprocess.run(["id", USER], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
 STATE.mkdir(parents=True, mode=0o700)
