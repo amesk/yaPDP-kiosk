@@ -16,8 +16,10 @@ NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
-DeviceAllow=/dev/input/event* rw
-DeviceAllow=/dev/uinput rw
+# Keep the default device policy. Explicit DeviceAllow rules made
+# python-evdev list_devices() return an empty list on Ubuntu 24.04,
+# preventing the filter from discovering the physical keyboard.
+DevicePolicy=auto
 LockPersonality=true
 MemoryDenyWriteExecute=true
 
