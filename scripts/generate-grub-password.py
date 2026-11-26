@@ -14,14 +14,14 @@ VOWELS = "AEUY"
 DIGITS = "234679"
 PASSWORD_PATTERN = (
     f"[{CONSONANTS}][{VOWELS}][{CONSONANTS}][{VOWELS}]"
-    f"[{CONSONANTS}][{DIGITS}][{CONSONANTS}][{DIGITS}]"
+    f"[{DIGITS}][{CONSONANTS}][{VOWELS}][{CONSONANTS}]"
 )
 
 
 def generate_password() -> str:
     """Return an eight-character CVCVCDCD password."""
     pools = (CONSONANTS, VOWELS, CONSONANTS, VOWELS,
-             CONSONANTS, DIGITS, CONSONANTS, DIGITS)
+             DIGITS, CONSONANTS, VOWELS, CONSONANTS)
     return "".join(secrets.choice(pool) for pool in pools)
 
 
