@@ -77,8 +77,7 @@ for service in services:
     service_state[service] = {"enabled":enabled or "unknown", "active":active or "unknown"}
 manifest = {"version":1,"kiosk_user":USER,"kiosk_home":str(HOME),"account_existed":account_existed,"files":files,"directories":directory_state,"services":service_state}
 tmp = STATE / "manifest.json.tmp"
-tmp.write_text(json.dumps(manifest,indent=2)+"
-")
+tmp.write_text(json.dumps(manifest,indent=2)+"\n")
 os.chmod(tmp,0o600)
 tmp.replace(STATE / "manifest.json")
 os.chmod(STATE,0o700)
