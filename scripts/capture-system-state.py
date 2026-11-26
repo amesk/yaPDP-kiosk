@@ -38,7 +38,7 @@ if STATE.exists():
         else:
             files[raw] = {"kind": "absent"}
         tmp = STATE / "manifest.json.tmp"
-        tmp.write_text(json.dumps(data, indent=2) + "\\n")
+        tmp.write_text(json.dumps(data, indent=2) + "\n")
         os.chmod(tmp, 0o600)
         tmp.replace(manifest)
         print(f"Extended original-state backup with {raw}")
