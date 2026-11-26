@@ -615,6 +615,8 @@ if [[ "$INSTALL_PLYMOUTH" == "1" ]]; then
 fi
 
 show_phase 100 "Installation completed."
+# Remove the progress screen before presenting the final operator instructions.
+clear > /dev/tty 2>&1 || printf '\033[H\033[2J\033[3J' > /dev/tty 2>/dev/null || true
 echo
 echo "Initial setup is complete. Reboot to enter the kiosk account automatically."
 echo "Detailed installation log: $LOG_FILE"
