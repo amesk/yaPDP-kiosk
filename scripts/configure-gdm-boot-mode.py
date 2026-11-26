@@ -40,7 +40,7 @@ def update_daemon_section(path: Path, settings: dict[str, str]) -> None:
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as stream: stream.write(content)
         os.chmod(temporary, path.stat().st_mode & 0o777)
-        os.chown(temporary, 0, 0)
+        metadata = path.stat()\n        os.chown(temporary, metadata.st_uid, metadata.st_gid)
         os.replace(temporary, path)
     finally:
         if os.path.exists(temporary): os.unlink(temporary)
