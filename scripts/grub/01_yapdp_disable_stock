@@ -1,0 +1,11 @@
+#!/bin/sh
+# Keep the GRUB menu limited to the two yaPDP-managed entries even when a
+# kernel package invokes update-grub after refreshing /etc/grub.d scripts.
+set -eu
+for script in 10_linux 10_linux_zfs 20_linux_xen 20_memtest86+ 30_os-prober 30-uefi-firmware 30_uefi-firmware 40_custom 41_custom; do
+    path="/etc/grub.d/$script"
+    if [ -f "$path" ] && [ -x "$path" ]; then
+        chmod a-x "$path"
+    fi
+done
+exit 0
