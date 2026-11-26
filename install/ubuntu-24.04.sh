@@ -63,6 +63,16 @@ if ! dpkg-query -W -f='${Status}' gdm3 2>/dev/null | grep -q "install ok install
   exit 1
 fi
 
+# Capture the machine's original configuration exactly once, before changing
+# packages, accounts, boot settings, display manager, nginx, or systemd.
+KIOSK_HOME="$(getent passwd "$KIOSK_USER" | cut -d: -f6)"
+if [[ -z "$KIOSK_HOME" ]]; then KIOSK_HOME="/home/$KIOSK_USER"; fi
+python3 "$KIOSK_DIR/scripts/capture-system-state.py" "$KIOSK_USER" "$KIOSK_HOME"
+install -d -o root -g root -m 0755 /usr/local/lib/yapdp-kiosk
+install -o root -g root -m 0755 "$KIOSK_DIR/scripts/restore-system-state.py" /usr/local/lib/yapdp-kiosk/restore-system-state.py
+install -o root -g root -m 0755 "$KIOSK_DIR/deactivate-kiosk.sh" /usr/local/sbin/deactivate-yapdp-kiosk
+install -o root -g root -m 0755 "$KIOSK_DIR/activate-kiosk.sh" /usr/local/sbin/activate-yapdp-kiosk
+
 yapdp_phase 15 "Installing GNOME Kiosk session components..."
 
 # Use GNOME's dedicated single-application session instead of a normal desktop
