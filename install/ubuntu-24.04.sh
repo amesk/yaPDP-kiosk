@@ -563,8 +563,7 @@ if [[ ! -s "$GRUB_PASSWORD_FILE" ]]; then
   python3 - "$GRUB_PASSWORD_FILE" <<'PY'
 import os, secrets, sys
 from pathlib import Path
-alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
-password = "".join(secrets.choice(alphabet) for _ in range(24))
+password = "".join(secrets.choice("0123456789") for _ in range(24))
 path = Path(sys.argv[1])
 path.write_text(password + "\n", encoding="ascii")
 os.chown(path, 0, 0)
@@ -572,7 +571,7 @@ os.chmod(path, 0o600)
 PY
 fi
 GRUB_PASSWORD="$(cat "$GRUB_PASSWORD_FILE")"
-if [[ ! "$GRUB_PASSWORD" =~ ^[A-Za-z0-9]{24}$ ]]; then
+if [[ ! "$GRUB_PASSWORD" =~ ^[0-9]{24}$ ]]; then
   echo "The saved GRUB password has an invalid format: $GRUB_PASSWORD_FILE" >&2
   exit 1
 fi
