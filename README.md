@@ -334,8 +334,11 @@ The GRUB menu contains exactly two managed entries:
 - **Load yaPDP-kiosk** — unrestricted and selected by default.
 - **Enter service mode** — requires the separate GRUB password.
 
-The menu is displayed for five seconds. If no selection is made, the kiosk
-starts automatically. The service entry boots the same Ubuntu installation
+The menu is hidden during normal startup. GRUB waits for five seconds; if no
+menu key is pressed, the kiosk starts automatically. Hold **Shift** during the
+boot window to reveal the menu on legacy BIOS systems; on UEFI systems, **Esc**
+is also commonly used to reveal it. Firmware and keyboard timing vary, so test
+the recovery key on the actual exhibit hardware. The service entry boots the same Ubuntu installation
 with `yapdp.service_mode=1`; it does not change the persistent GRUB default
 and does not set a service mode for the next boot.
 
