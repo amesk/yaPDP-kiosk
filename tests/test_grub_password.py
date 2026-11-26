@@ -3,10 +3,14 @@ import re
 import unittest
 
 from pathlib import Path
-import sys
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+import importlib.util
 
-from generate_grub_password import PASSWORD_PATTERN, generate_password
+MODULE_PATH = Path(__file__).resolve().parents[1] / "scripts" / "generate-grub-password.py"
+SPEC = importlib.util.spec_from_file_location("generate_grub_password", MODULE_PATH)
+MODULE = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(MODULE)
+PASSWORD_PATTERN = MODULE.PASSWORD_PATTERN
+generate_password = MODULE.generate_password
 
 
 class GrubPasswordTests(unittest.TestCase):
