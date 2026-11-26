@@ -607,7 +607,8 @@ if [[ "$INSTALL_PLYMOUTH" == "1" ]]; then
   show_phase 97 "Installing the optional Plymouth boot splash..."
   echo
   echo "Installing the optional yaPDP Plymouth boot splash..."
-  if ! bash "$INSTALL_ROOT/yaPDP-kiosk/plymouth/install.sh"; then
+  # Keep the optional theme installer diagnostics in the log; its spinner writes directly to the terminal.
+  if ! bash "$INSTALL_ROOT/yaPDP-kiosk/plymouth/install.sh" >> "$LOG_FILE" 2>&1; then
     echo "WARNING: Plymouth setup did not complete. The kiosk itself is installed; check the selected theme and initramfs before rebooting." >&2
     echo "You can inspect the error and retry later with:" >&2
     echo "  sudo bash $INSTALL_ROOT/yaPDP-kiosk/plymouth/install.sh" >&2
