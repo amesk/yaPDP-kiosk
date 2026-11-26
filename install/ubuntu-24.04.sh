@@ -648,7 +648,7 @@ path = Path(sys.argv[1])
 lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
 settings = {
     "GRUB_DEFAULT": "yapdp-kiosk",
-    "GRUB_TIMEOUT_STYLE": "menu",
+    "GRUB_TIMEOUT_STYLE": "hidden",
     "GRUB_TIMEOUT": "5",
     "GRUB_DISABLE_OS_PROBER": "true",
     "GRUB_DISABLE_RECOVERY": "true",
@@ -790,7 +790,7 @@ path = Path(sys.argv[1])
 lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
 settings = {
     "GRUB_DEFAULT": "yapdp-kiosk",
-    "GRUB_TIMEOUT_STYLE": "menu",
+    "GRUB_TIMEOUT_STYLE": "hidden",
     "GRUB_TIMEOUT": "5",
     "GRUB_DISABLE_OS_PROBER": "true",
     "GRUB_DISABLE_RECOVERY": "true",
