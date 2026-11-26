@@ -43,10 +43,7 @@ for raw, existed in data.get("directories", {}).items():
         except OSError:
             pass
 
-# Keep the unprivileged kiosk user's home/data, but remove the account if the
-# installer itself created it. This avoids deleting any user files.
-if not data.get("account_existed", True):
-    import subprocess
-    subprocess.run(["userdel", data["kiosk_user"]], check=False)
-
+# The dedicated unprivileged account and its home are intentionally retained.
+# Removing a currently logged-in account during rollback is unsafe; GDM's
+# restored configuration prevents the kiosk session from auto-starting.
 print("Restored pre-install configuration files and directory state.")
