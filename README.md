@@ -164,8 +164,8 @@ The repository equivalents are `sudo bash ./activate-kiosk.sh` and
 `sudo bash ./deactivate-kiosk.sh`. Activation reapplies the kiosk installer
 without replacing the original snapshot. Deactivation stops kiosk components,
 restores the captured configuration and service states, and regenerates GRUB.
-It does not remove repositories, disk images, saved states, the kiosk user's
-home directory, or installed packages. It does not reboot automatically.
+It does not remove repositories, disk images, saved states, the kiosk account or
+its home directory, or installed packages. It does not reboot automatically.
 
 Deactivation requires a valid original-state snapshot and refuses to guess if
 the snapshot or any required backup file is missing. Keep the repository or
