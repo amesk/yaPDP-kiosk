@@ -41,7 +41,14 @@ paths = [
  f"/var/lib/AccountsService/users/{USER}",
 ]
 directories = ["/etc/yapdp-kiosk", "/etc/systemd/system/gdm3.service.d", "/etc/systemd/system/getty@tty3.service.d", "/etc/systemd/logind.conf.d", "/etc/sysctl.d", "/etc/modules-load.d", "/usr/local/lib/yapdp-kiosk", "/var/lib/AccountsService/users"]
-directory_state = {}\nfor raw in directories:\n    path = Path(raw)\n    if path.is_dir():\n        st = path.stat()\n        directory_state[raw] = {"exists": True, "mode": st.st_mode & 0o777, "uid": st.st_uid, "gid": st.st_gid}\n    else:\n        directory_state[raw] = {"exists": False}
+directory_state = {}
+for raw in directories:
+    path = Path(raw)
+    if path.is_dir():
+        st = path.stat()
+        directory_state[raw] = {"exists": True, "mode": st.st_mode & 0o777, "uid": st.st_uid, "gid": st.st_gid}
+    else:
+        directory_state[raw] = {"exists": False}
 services = ["nginx.service", "gdm3.service", "yapdp-kiosk-guard.service", "getty@tty3.service"]
 account_existed = subprocess.run(["id", USER], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
 STATE.mkdir(parents=True, mode=0o700)
@@ -70,7 +77,8 @@ for service in services:
     service_state[service] = {"enabled":enabled or "unknown", "active":active or "unknown"}
 manifest = {"version":1,"kiosk_user":USER,"kiosk_home":str(HOME),"account_existed":account_existed,"files":files,"directories":directory_state,"services":service_state}
 tmp = STATE / "manifest.json.tmp"
-tmp.write_text(json.dumps(manifest,indent=2)+"\n")
+tmp.write_text(json.dumps(manifest,indent=2)+"
+")
 os.chmod(tmp,0o600)
 tmp.replace(STATE / "manifest.json")
 os.chmod(STATE,0o700)
