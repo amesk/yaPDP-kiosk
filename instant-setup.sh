@@ -37,7 +37,7 @@ YAPDP_REF="${YAPDP_REF:-95dd47a9bab9a0a2854669197b077b3388dda09b}"
 if [[ -z "${KIOSK_REF:-}" && "${YAPDP_BOOTSTRAP_URL:-}" =~ ^https://raw\.githubusercontent\.com/[^/]+/[^/]+/refs/heads/(.+)/instant-setup\.sh$ ]]; then
   KIOSK_REF="${BASH_REMATCH[1]}"
 fi
-KIOSK_REF="${KIOSK_REF:-master}"
+KIOSK_REF="${KIOSK_REF:-feat/local-kiosk-service-mode}"
 readonly INSTALL_ROOT="/opt/yapdp-exhibit"
 
 KIOSK_USER="${KIOSK_USER:-yapdp-kiosk}"
