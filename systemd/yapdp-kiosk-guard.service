@@ -1,8 +1,9 @@
 [Unit]
-Description=yaPDP kiosk local keyboard service-mode guard
-After=systemd-udevd.service systemd-logind.service
+Description=yaPDP kiosk F1-F12 keyboard filter
+After=systemd-udevd.service
 Before=display-manager.service
 ConditionPathExists=/usr/local/lib/yapdp-kiosk/kiosk-guard.py
+ConditionKernelCommandLine=!yapdp.service_mode=1
 
 [Service]
 Type=simple
@@ -15,12 +16,8 @@ NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
-ReadWritePaths=/run
 DeviceAllow=/dev/input/event* rw
 DeviceAllow=/dev/uinput rw
-DeviceAllow=/dev/tty0 rw
-CapabilityBoundingSet=CAP_SYS_TTY_CONFIG
-AmbientCapabilities=CAP_SYS_TTY_CONFIG
 LockPersonality=true
 MemoryDenyWriteExecute=true
 
