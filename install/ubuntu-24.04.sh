@@ -553,7 +553,8 @@ PY
 # its PBKDF2 hash.
 if ! command -v grub-mkpasswd-pbkdf2 >/dev/null 2>&1 ||
    ! command -v update-grub >/dev/null 2>&1 ||
-   ! command -v grub-probe >/dev/null 2>&1; then
+   ! command -v grub-probe >/dev/null 2>&1 ||
+   ! command -v grub-script-check >/dev/null 2>&1; then
   echo "Required GRUB utilities are missing (grub-common/grub2-common)." >&2
   exit 1
 fi
@@ -642,6 +643,10 @@ if [[ "$GRUB_MENU_COUNT" != "2" ]]; then
   echo "Inspect /boot/grub/grub.cfg and /etc/grub.d before rebooting." >&2
   exit 1
 fi
+if ! grub-script-check /boot/grub/grub.cfg; then
+  echo "Generated GRUB configuration failed grub-script-check." >&2
+  exit 1
+fi
 
 KIOSK_SYSCTL_DROPIN="/etc/sysctl.d/90-yapdp-kiosk.conf"
 cat > "$KIOSK_SYSCTL_DROPIN" <<'SYSCTL'
@@ -665,7 +670,7 @@ echo
 echo "yaPDP kiosk nginx site installed."
 echo "Kiosk account: $KIOSK_USER"
 echo "GNOME Kiosk Wayland session selected for GDM automatic login."
-echo "GDM automatic login enabled for that account (effective after reboot)."
+echo "GDM auto-login configured for normal kiosk boots; service boots use the standard greeter."
 echo "Keyboard filter: active in kiosk mode; F1-F12 are suppressed."
 echo "GRUB menu: Load yaPDP-kiosk / Enter service mode (password protected)."
 echo "GRUB username: kiosk-admin"
