@@ -31,7 +31,8 @@ for name,state in data["services"].items():
     elif enabled in ("disabled","masked","static","indirect","generated","transient","not-found"):
         if enabled == "masked": subprocess.run(["systemctl","mask",name],check=False)
         elif enabled in ("disabled","not-found"): subprocess.run(["systemctl","disable",name],check=False)
-    if state["active"] == "active":\n        subprocess.run(["systemctl","restart" if name == "gdm3.service" else "start",name],check=False)
+    if state["active"] == "active":
+        subprocess.run(["systemctl","restart" if name == "gdm3.service" else "start",name],check=False)
     elif state["active"] in ("inactive","failed"): subprocess.run(["systemctl","stop",name],check=False)
 PY
 echo
