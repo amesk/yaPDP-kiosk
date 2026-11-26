@@ -23,11 +23,29 @@ yapdp_log_init() {
   trap 'yapdp_log_error $? $LINENO "$BASH_COMMAND"' ERR
 }
 
+# Restore normal terminal attributes and colours before clearing the screen.
+# dialog may leave its blue background active; clearing without resetting the
+# colour pair simply paints the old background again.
+yapdp_reset_terminal() {
+  local tty="/dev/tty"
+  [[ -w "$tty" ]] || return 0
+
+  {
+    if command -v tput >/dev/null 2>&1; then
+      tput sgr0 2>/dev/null || printf '\033[0m'
+      tput op 2>/dev/null || printf '\033[39;49m'
+      tput clear 2>/dev/null || printf '\033[H\033[2J\033[3J'
+    else
+      printf '\033[0m\033[39;49m\033[H\033[2J\033[3J'
+    fi
+  } > "$tty" 2>/dev/null || true
+}
+
 # Keep the operator terminal clean after every error dialog.
 yapdp_dialog() {
   local status=0
   dialog "$@" || status=$?
-  clear > /dev/tty 2>&1 || printf '\\033[H\\033[2J\\033[3J' > /dev/tty 2>/dev/null || true
+  yapdp_reset_terminal
   return "$status"
 }
 
@@ -89,7 +107,7 @@ yapdp_phase() {
   printf -v bar '%*s' "$filled" ''
   bar="${bar// /#}"
   printf -v bar '%-*s' "$width" "$bar"
-  printf '\033[H\033[2J\033[3J' > /dev/tty 2>/dev/null || true
+  yapdp_reset_terminal
   {
     printf '\n  yaPDP MUSEUM KIOSK SETUP\n\n'
     printf '  %s\n\n' "$title"
