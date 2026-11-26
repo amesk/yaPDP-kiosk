@@ -3,7 +3,7 @@ set -euo pipefail
 if [[ "$EUID" -ne 0 ]]; then echo "Run with sudo: sudo $0" >&2; exit 1; fi
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 INSTALLER="$SCRIPT_DIR/install/ubuntu-24.04.sh"
-if [[ ! -x "$INSTALLER" ]]; then
+if [[ ! -f "$INSTALLER" ]]; then
   echo "Installer not found: $INSTALLER" >&2
   echo "Run this script from the yaPDP-kiosk repository." >&2
   exit 1
