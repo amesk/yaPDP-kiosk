@@ -15,8 +15,8 @@ if [[ "$#" -gt 0 ]]; then
 Usage: bash instant-setup.sh
        wget -O - <url>/instant-setup.sh | bash
 
-The setup wizard uses dialog. Installation phases and command output
-are printed to the terminal and saved to the detailed log.
+The setup wizard uses dialog. Installation progress is shown in the
+terminal; detailed command output is saved to the log.
 USAGE
       exit 0
       ;;
@@ -29,6 +29,14 @@ YAPDP_REPO_URL="${YAPDP_REPO_URL:-https://github.com/amesk/yaPDP.git}"
 KIOSK_REPO_URL="${KIOSK_REPO_URL:-https://github.com/amesk/yaPDP-kiosk.git}"
 # Keep known-good revisions pinned by default. Forks can override the refs too.
 YAPDP_REF="${YAPDP_REF:-95dd47a9bab9a0a2854669197b077b3388dda09b}"
+
+# When this bootstrap was piped from a raw GitHub branch URL, use that same
+# branch for the installer repository unless the operator explicitly overrides
+# KIOSK_REF. Otherwise a feature-branch bootstrap could silently download the
+# child installer and its libraries from master.
+if [[ -z "${KIOSK_REF:-}" && "${YAPDP_BOOTSTRAP_URL:-}" =~ ^https://raw\.githubusercontent\.com/[^/]+/[^/]+/refs/heads/(.+)/instant-setup\.sh$ ]]; then
+  KIOSK_REF="${BASH_REMATCH[1]}"
+fi
 KIOSK_REF="${KIOSK_REF:-master}"
 readonly INSTALL_ROOT="/opt/yapdp-exhibit"
 
@@ -119,6 +127,33 @@ exec > >(tee -a "$LOG_FILE" >/dev/tty) 2>&1
 echo "===== yaPDP kiosk bootstrap started: $(date --iso-8601=seconds) ====="
 echo "Log file: $LOG_FILE"
 
+# Restore normal terminal attributes and colours before clearing the screen.
+# dialog may leave its blue background active; clearing without resetting the
+# colour pair simply paints the old background again.
+yapdp_reset_terminal() {
+  local tty="/dev/tty"
+  [[ -w "$tty" ]] || return 0
+
+  {
+    if command -v tput >/dev/null 2>&1; then
+      tput sgr0 2>/dev/null || printf '\033[0m'
+      tput op 2>/dev/null || printf '\033[39;49m'
+      tput clear 2>/dev/null || printf '\033[H\033[2J\033[3J'
+    else
+      printf '\033[0m\033[39;49m\033[H\033[2J\033[3J'
+    fi
+  } > "$tty" 2>/dev/null || true
+}
+
+# Run dialog without allowing installer output to remain visible behind it.
+# Preserve dialog's stdout (notably --stdout form/menu results) and exit status.
+yapdp_dialog() {
+  local status=0
+  dialog "$@" || status=$?
+  yapdp_reset_terminal
+  return "$status"
+}
+
 STAGE_DIR=""
 
 cleanup() {
@@ -130,10 +165,10 @@ cleanup() {
 
     if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]] \
        && command -v dialog >/dev/null 2>&1; then
-      dialog --title "yaPDP Museum Kiosk Setup" --msgbox \
+      yapdp_dialog --title "yaPDP Museum Kiosk Setup" --msgbox \
         "Installation was interrupted.\\n\\nNo further installation steps will be run.\\n\\nThe detailed log is saved at:\\n$LOG_FILE" \
         10 78 </dev/tty >/dev/tty 2>&1 || true
-      clear >/dev/tty 2>&1 || printf '\\033[H\\033[2J\\033[3J' > /dev/tty 2>/dev/null || true
+      yapdp_reset_terminal
     else
       printf '\\nInstallation interrupted. Log: %s\\n' "$LOG_FILE" > /dev/tty 2>/dev/null || true
     fi
@@ -171,6 +206,23 @@ run_command() {
   "$@"
 }
 
+# Package-manager output is useful for diagnostics but too noisy for the
+# operator-facing kiosk setup. Keep it in the log and surface details on error.
+run_logged_command() {
+  local message="$1"
+  shift
+  printf '\n==> %s\n' "$message"
+  if "$@" >> "$LOG_FILE" 2>&1; then
+    printf '%s completed.\n' "$message"
+  else
+    local status=$?
+    printf 'ERROR: %s failed (exit %s).\n' "$message" "$status" >&2
+    printf 'Last lines from the installation log:\n' >&2
+    tail -n 25 "$LOG_FILE" >&2 || true
+    return "$status"
+  fi
+}
+
 download_chrome() {
   local output="$1"
   local url="$2"
@@ -202,7 +254,7 @@ download_chrome() {
   return "$status"
 }
 
-trap 'status=$?; line=$LINENO; command=$BASH_COMMAND; echo "ERROR: exit $status at line $line: $command"; echo "Installation log: $LOG_FILE"; if [[ -r /dev/tty && -w /dev/tty ]] && command -v dialog >/dev/null 2>&1; then dialog --title "yaPDP Kiosk Setup — Error" --msgbox "Installation failed (exit code $status).\\n\\nDetailed log:\\n$LOG_FILE" 10 78 </dev/tty >/dev/tty 2>&1 || true; else echo "Installation failed. Log: $LOG_FILE" >&2; fi' ERR
+trap 'status=$?; line=$LINENO; command=$BASH_COMMAND; echo "ERROR: exit $status at line $line: $command"; echo "Installation log: $LOG_FILE"; if [[ -r /dev/tty && -w /dev/tty ]] && command -v dialog >/dev/null 2>&1; then yapdp_dialog --title "yaPDP Kiosk Setup — Error" --msgbox "Installation failed (exit code $status).\\n\\nDetailed log:\\n$LOG_FILE" 10 78 </dev/tty >/dev/tty 2>&1 || true; else echo "Installation failed. Log: $LOG_FILE" >&2; fi' ERR
 
 if [[ ! -r /etc/os-release ]]; then
   echo "Cannot identify the operating system." >&2
@@ -231,26 +283,26 @@ if ! dpkg-query -W -f='${Status}' gdm3 2>/dev/null | grep -q "install ok install
   exit 1
 fi
 
-# The welcome screen and settings wizard both use dialog. Install it
-# before showing either screen; package-manager output remains in the log.
+# The welcome screen and settings wizard both use dialog. Prepare it
+# quietly: package-manager output belongs in the detailed log, not on the
+# museum operator's screen. Only expose diagnostics if preparation fails.
 if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]] &&
    ! command -v dialog >/dev/null 2>&1; then
-  {
-    printf '\n  yaPDP MUSEUM KIOSK SETUP\n\n'
-    printf '  Preparing the installation wizard...\n\n'
-    printf '  Ubuntu may be completing background updates. The installer\n'
-    printf '  will wait until the package manager is available, then\n'
-    printf '  prepare the setup screens.\n\n'
-    printf '  Please wait; no action is required.\n\n'
-    printf '  Detailed installation log:\n  %s\n' "$LOG_FILE"
-  } > /dev/tty
+  printf '\nPreparing the setup wizard... please wait.\n' > /dev/tty
 
-  if ! run_command "Preparing the setup wizard" bash -c 'apt-get -o DPkg::Lock::Timeout=300 update && DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y dialog'; then
+  if {
+    apt-get -o DPkg::Lock::Timeout=300 update &&
+    DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y dialog
+  } >> "$LOG_FILE" 2>&1; then
+    printf 'Setup wizard is ready.\n' > /dev/tty
+  else
     {
-      printf '\n  ERROR: Could not install the dialog interface.\n'
-      printf '  The installer cannot continue interactively.\n\n'
-      printf '  Please inspect the log:\n  %s\n' "$LOG_FILE"
-      printf '\n  Press Enter to exit. '
+      printf '\nERROR: Could not prepare the setup wizard.\n'
+      printf 'The installer cannot continue interactively.\n\n'
+      printf 'Detailed log: %s\n\n' "$LOG_FILE"
+      printf '%s\n' 'Last lines from the log:'
+      tail -n 25 "$LOG_FILE" 2>/dev/null || true
+      printf '\nPress Enter to exit. '
     } > /dev/tty
     IFS= read -r _ < /dev/tty || true
     exit 1
@@ -259,7 +311,7 @@ fi
 
 show_welcome() {
   [[ "${NONINTERACTIVE:-0}" == "1" || ! -r /dev/tty || ! -w /dev/tty ]] && return 0
-  dialog --title "yaPDP Museum Kiosk Setup" --no-collapse --msgbox \
+  yapdp_dialog --title "yaPDP Museum Kiosk Setup" --no-collapse --msgbox \
     "This installer will prepare this Ubuntu 24.04 computer as a dedicated, full-screen museum exhibit.\n\nIt will configure:\n  • Google Chrome and the GNOME Kiosk session\n  • yaPDP and the kiosk presentation files\n  • A local web server and automatic kiosk login\n\nExisting files under /opt/yapdp-exhibit will not be overwritten.\n\nDetailed installation output is saved to:\n$LOG_FILE\n\nSelect OK to configure the installation, or Cancel to abort." \
     20 78 </dev/tty >/dev/tty 2>&1
 }
@@ -271,7 +323,7 @@ show_welcome
 if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]]; then
   edit_repositories() {
     local values status
-    if values="$(dialog --stdout --title "Setup Wizard — 1/3: Repositories" \
+    if values="$(yapdp_dialog --stdout --title "Setup Wizard — 1/3: Repositories" \
       --extra-button --extra-label "Back" \
       --form "Choose the repository locations and exact revisions to install.\nYou can return to this menu and revise any section before installation." \
       19 82 8 \
@@ -299,7 +351,7 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]]; then
 
   edit_visitor_experience() {
     local values status
-    if values="$(dialog --stdout --title "Setup Wizard — 2/3: Visitor experience" \
+    if values="$(yapdp_dialog --stdout --title "Setup Wizard — 2/3: Visitor experience" \
       --extra-button --extra-label "Back" \
       --form "Configure when the exhibit returns to its presentation screen." \
       14 82 5 \
@@ -323,7 +375,7 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]]; then
 
   edit_boot_appearance() {
     local status
-    if dialog --title "Setup Wizard — 3/3: Boot appearance" --yesno \
+    if yapdp_dialog --title "Setup Wizard — 3/3: Boot appearance" --yesno \
       "Install the yaPDP PDP-11/70 Plymouth boot splash?\n\nThis changes the system boot theme and rebuilds initramfs.\nYou can also install it later from plymouth/install.sh." \
       12 78 </dev/tty >/dev/tty 2>&1; then
       INSTALL_PLYMOUTH=1
@@ -340,7 +392,7 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]]; then
   }
 
   while true; do
-    if choice="$(dialog --stdout --title "yaPDP Museum Kiosk Setup — Configuration Wizard" \
+    if choice="$(yapdp_dialog --stdout --title "yaPDP Museum Kiosk Setup — Configuration Wizard" \
       --menu "Select a section to configure. You can revisit any section before starting the installation." \
       17 82 6 \
       "repositories" "Repository URLs and pinned revisions" \
@@ -360,7 +412,7 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]]; then
           ;;
         review)
           review_text="yaPDP repository:\n$YAPDP_REPO_URL\nREF: $YAPDP_REF\n\nyaPDP-kiosk repository:\n$KIOSK_REPO_URL\nREF: $KIOSK_REF\n\nInactivity timeout: $IDLE_TIMEOUT seconds\nReturn URL: $IDLE_REDIRECT\nPlymouth boot splash: $([[ "$INSTALL_PLYMOUTH" == "1" ]] && echo "Yes" || echo "No")\n\nStart installation with these settings?"
-          if dialog --title "Setup Wizard — Review" --yesno "$review_text" 22 82 </dev/tty >/dev/tty 2>&1; then
+          if yapdp_dialog --title "Setup Wizard — Review" --yesno "$review_text" 22 82 </dev/tty >/dev/tty 2>&1; then
             break
           else
             status=$?
@@ -434,8 +486,8 @@ if ! command -v google-chrome-stable >/dev/null 2>&1 \
   fi
 
   echo "Google Chrome Stable is not installed; installing the official Google .deb package."
-  run_command "Refreshing Ubuntu package lists" apt-get -o DPkg::Lock::Timeout=300 update
-  run_command "Installing download tools" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y ca-certificates curl
+  run_logged_command "Refreshing Ubuntu package lists" apt-get -o DPkg::Lock::Timeout=300 update
+  run_logged_command "Installing download tools" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y ca-certificates curl
 
   # Keep the download outside the temporary staging directory so an interrupted
   # bootstrap can resume it on the next run instead of downloading from zero.
@@ -463,7 +515,7 @@ if ! command -v google-chrome-stable >/dev/null 2>&1 \
     echo "A valid cached Google Chrome package was found; skipping download."
   fi
 
-  run_command "Installing Google Chrome Stable" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y "$CHROME_DEB"
+  run_logged_command "Installing Google Chrome Stable" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y "$CHROME_DEB"
 fi
 
 CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || true)"
@@ -487,8 +539,8 @@ fi
 show_phase 20 "Google Chrome is ready. Preparing repository download..."
 
 if ! command -v git >/dev/null 2>&1; then
-  run_command "Refreshing Ubuntu package lists" apt-get -o DPkg::Lock::Timeout=300 update
-  run_command "Installing Git" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y git ca-certificates
+  run_logged_command "Refreshing Ubuntu package lists" apt-get -o DPkg::Lock::Timeout=300 update
+  run_logged_command "Installing Git" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y git ca-certificates
 fi
 
 fetch_git_with_progress() {
@@ -570,10 +622,13 @@ YAPDP_PROGRESS_BASE=55 YAPDP_PROGRESS_SPAN=40 \
   bash "$INSTALL_ROOT/yaPDP-kiosk/install/ubuntu-24.04.sh"
 
 if [[ "$INSTALL_PLYMOUTH" == "1" ]]; then
+  # Start the optional Plymouth phase on a clean terminal, not over the progress dialog.
+  yapdp_reset_terminal
   show_phase 97 "Installing the optional Plymouth boot splash..."
   echo
   echo "Installing the optional yaPDP Plymouth boot splash..."
-  if ! bash "$INSTALL_ROOT/yaPDP-kiosk/plymouth/install.sh"; then
+  # Keep the optional theme installer diagnostics in the log; its spinner writes directly to the terminal.
+  if ! bash "$INSTALL_ROOT/yaPDP-kiosk/plymouth/install.sh" >> "$LOG_FILE" 2>&1; then
     echo "WARNING: Plymouth setup did not complete. The kiosk itself is installed; check the selected theme and initramfs before rebooting." >&2
     echo "You can inspect the error and retry later with:" >&2
     echo "  sudo bash $INSTALL_ROOT/yaPDP-kiosk/plymouth/install.sh" >&2
@@ -581,6 +636,8 @@ if [[ "$INSTALL_PLYMOUTH" == "1" ]]; then
 fi
 
 show_phase 100 "Installation completed."
+# Remove the progress screen before presenting the final operator instructions.
+yapdp_reset_terminal
 echo
 echo "Initial setup is complete. Reboot to enter the kiosk account automatically."
 echo "Detailed installation log: $LOG_FILE"

@@ -86,6 +86,23 @@ disable_idle_lock() {
 disable_gnome_shortcuts
 disable_idle_lock
 
+# GRUB service-mode boot disables kiosk auto-login; this is a defensive guard.
+if grep -qw 'yapdp.service_mode=1' /proc/cmdline; then
+  echo "Service-mode boot detected; refusing to launch the kiosk." >&2
+  exit 0
+fi
+
+# The root-owned F-key filter must be active before Chrome is started.
+if ! systemctl is-active --quiet yapdp-kiosk-guard.service; then
+  echo "The local keyboard guard is not active; refusing to start the kiosk." >&2
+  exit 1
+fi
+# Lock VT switching only after GNOME Kiosk has acquired its graphical VT.
+if ! sudo -n /usr/local/sbin/yapdp-vt-switch-lock lock; then
+  echo "Could not lock virtual-terminal switching; refusing to start Chrome." >&2
+  exit 1
+fi
+
 # Chrome's kiosk flag is presentation, not process supervision. If a visitor
 # closes it (Alt+F4, Ctrl+Q, etc.), relaunch it instead of leaving the desktop
 # exposed. A short delay avoids a tight loop if Chrome cannot start.

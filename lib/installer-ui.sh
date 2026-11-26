@@ -4,6 +4,12 @@
 yapdp_log_init() {
   if [[ -n "${YAPDP_INSTALL_LOG:-}" ]]; then
     LOG_FILE="$YAPDP_INSTALL_LOG"
+    # A parent bootstrap may already own the output redirection, but this
+    # process still needs its own ERR trap so child-installer failures are
+    # recorded in the shared log with the failing command and line number.
+    trap 'yapdp_log_error $? $LINENO "$BASH_COMMAND"' ERR
+    echo "===== yaPDP kiosk installer started: $(date --iso-8601=seconds) ====="
+    echo "Log file: $LOG_FILE"
     return 0
   fi
 
@@ -17,6 +23,32 @@ yapdp_log_init() {
   trap 'yapdp_log_error $? $LINENO "$BASH_COMMAND"' ERR
 }
 
+# Restore normal terminal attributes and colours before clearing the screen.
+# dialog may leave its blue background active; clearing without resetting the
+# colour pair simply paints the old background again.
+yapdp_reset_terminal() {
+  local tty="/dev/tty"
+  [[ -w "$tty" ]] || return 0
+
+  {
+    if command -v tput >/dev/null 2>&1; then
+      tput sgr0 2>/dev/null || printf '\033[0m'
+      tput op 2>/dev/null || printf '\033[39;49m'
+      tput clear 2>/dev/null || printf '\033[H\033[2J\033[3J'
+    else
+      printf '\033[0m\033[39;49m\033[H\033[2J\033[3J'
+    fi
+  } > "$tty" 2>/dev/null || true
+}
+
+# Keep the operator terminal clean after every error dialog.
+yapdp_dialog() {
+  local status=0
+  dialog "$@" || status=$?
+  yapdp_reset_terminal
+  return "$status"
+}
+
 yapdp_log_error() {
   local status="$1" line="$2" command="$3"
   trap - ERR
@@ -27,7 +59,7 @@ yapdp_log_error() {
     echo "===== installation failed: $(date --iso-8601=seconds) ====="
   } >> "${LOG_FILE:-/dev/null}"
   if [[ -t 0 && -t 1 && -r /dev/tty ]] && command -v dialog >/dev/null 2>&1; then
-    dialog --title "yaPDP Kiosk Setup — Error" --msgbox \
+    yapdp_dialog --title "yaPDP Kiosk Setup — Error" --msgbox \
       "Installation failed (exit code $status).\n\nDetailed diagnostics were saved to:\n${LOG_FILE:-unknown}" 10 78 < /dev/tty || true
   else
     echo "Installation failed (exit code $status). Log: ${LOG_FILE:-not available}" >&2
@@ -43,7 +75,10 @@ yapdp_run_with_spinner() {
   local pid status frame=0
   local spinner='|/-\'
 
-  ("$@") &
+  # The bootstrap normally mirrors stdout/stderr to the operator terminal.
+  # Override that inherited destination for background package/install commands:
+  # keep their complete output in the log while the spinner owns the terminal.
+  ("$@" >> "$LOG_FILE" 2>&1) &
   pid=$!
 
   while kill -0 "$pid" 2>/dev/null; do
@@ -72,7 +107,7 @@ yapdp_phase() {
   printf -v bar '%*s' "$filled" ''
   bar="${bar// /#}"
   printf -v bar '%-*s' "$width" "$bar"
-  printf '\033[H\033[2J\033[3J' > /dev/tty 2>/dev/null || true
+  yapdp_reset_terminal
   {
     printf '\n  yaPDP MUSEUM KIOSK SETUP\n\n'
     printf '  %s\n\n' "$title"

@@ -88,6 +88,10 @@ The bootstrap:
   automatic login.
 - Removes the legacy desktop autostart entry; Chrome runs as the kiosk session's
   foreground application, not on top of a normal GNOME desktop.
+- Masks Ubuntu's `update-notifier` XDG autostart entry for the kiosk account
+  only, preventing Software Updater dialogs from appearing over the exhibit.
+  The administrator's desktop and normal package/security updates are not
+  disabled.
 - Installs/configures nginx on **127.0.0.1:8080** only.
 - Keeps application files root-owned and readable by the kiosk account.
 
@@ -101,6 +105,12 @@ automatic login and configures the kiosk user's AccountsService session
 preference to `gnome-kiosk-script-wayland`. Review these settings if the machine
 already has a customized display-manager policy. The change takes effect after
 reboot.
+
+Ubuntu's Software Updater notification is masked with a user-level XDG autostart
+override in the kiosk account. This suppresses the visitor-facing update dialog;
+it does not disable APT, unattended security updates, or update notifications
+in the administrator's own session. The override is part of the original-state
+snapshot and is restored by kiosk deactivation.
 
 The kiosk account uses GNOME Kiosk Script Session rather than a normal GNOME
 desktop. The session launches the user's `~/.local/bin/gnome-kiosk-script`; that
@@ -141,6 +151,37 @@ byte-level estimate of apt/dpkg work.
 
 Use a normal yaPDP checkout/release. No FS Bundle, generated resource archive,
 Node.js runtime, or changes to yaPDP are required for this deployment.
+
+## Reversible kiosk operation
+
+The Ubuntu installer captures the machine's pre-install configuration once in
+`/var/lib/yapdp-kiosk/original-state/` before it changes system settings. The
+snapshot includes the affected GRUB generators and defaults, GDM and
+AccountsService configuration, nginx site/link, systemd drop-ins, sysctl and
+logind settings, sudoers rule, relevant user files, and the original enabled /
+active state of affected services. Re-running the installer never overwrites
+that first snapshot.
+
+After installation, the following root-only commands are available both in the
+repository and under `/usr/local/sbin/`:
+
+```bash
+sudo activate-yapdp-kiosk
+sudo deactivate-yapdp-kiosk
+```
+
+The repository equivalents are `sudo bash ./activate-kiosk.sh` and
+`sudo bash ./deactivate-kiosk.sh`. Activation reapplies the kiosk installer
+without replacing the original snapshot. Deactivation stops kiosk components,
+restores the captured configuration and service states, and regenerates GRUB.
+It does not remove repositories, disk images, saved states, the kiosk account or
+its home directory, or installed packages. It does not reboot automatically.
+
+Deactivation requires a valid original-state snapshot and refuses to guess if
+the snapshot or any required backup file is missing. Keep the repository or
+the installed recovery helper available until deactivation is complete. This
+is a configuration rollback from a running Ubuntu system; it is not a bootloader
+or disk-recovery tool for a machine that cannot start Ubuntu.
 
 ## Manual install / reconfiguration
 
@@ -286,42 +327,77 @@ curl -I http://127.0.0.1:8080/yapdp/pdp11.html
 - The Windows launcher is intentionally not maintained; Ubuntu 24.04 is the
   supported deployment target.
 
-### Physical-access hardening
+### GRUB-protected local service mode
 
-The installer also closes the keyboard paths that do not depend on the browser
-or the compositor:
+The GRUB menu contains exactly two managed entries:
 
-- `org.gnome.mutter.keybindings switch-to-session-1..12` is cleared for the
-  kiosk account before the session starts, so **Ctrl+Alt+F1..F12** cannot leave
-  the GNOME Kiosk session for the GDM greeter or a spare virtual terminal.
-  `start-kiosk.sh` re-applies the same setting at every browser launch. The keys
-  are only written when the running mutter schema actually ships them
-  (gnome-kiosk may not); the installer treats this as best-effort hardening and
-  never fails because a key is absent.
-- `/etc/sysctl.d/90-yapdp-kiosk.conf` sets `kernel.sysrq = 0`, so Magic SysRq
-  (for example Alt+SysRq+B, Alt+SysRq+K) cannot reset the machine or kill the
-  exhibit session.
-- `ctrl-alt-del.target` is masked, so **Ctrl+Alt+Del** no longer reboots the
-  exhibit.
-- `/etc/systemd/logind.conf.d/90-yapdp-kiosk.conf` ignores the hardware power,
-  reboot, suspend, and hibernate keys. A ~4 second power-button hold is handled
-  by the firmware and still switches the machine off.
+- **Load yaPDP-kiosk** — unrestricted and selected by default.
+- **Enter service mode** — requires the separate GRUB password.
 
-These are deliberate, reversible system settings; the logind part takes effect
-after the next reboot. Undo them with:
+The menu is hidden during normal startup. GRUB waits for five seconds; if no
+menu key is pressed, the kiosk starts automatically. Hold **Shift** during the
+boot window to reveal the menu on legacy BIOS systems; on UEFI systems, **Esc**
+is also commonly used to reveal it. Firmware and keyboard timing vary, so test
+the recovery key on the actual exhibit hardware. The service entry boots the same Ubuntu installation
+with `yapdp.service_mode=1`; it does not change the persistent GRUB default
+and does not set a service mode for the next boot.
+
+Before GDM starts, a small boot-mode hook reads the kernel command line:
+
+- On a normal boot it enables GDM automatic login to the dedicated GNOME Kiosk
+  account.
+- On a service-mode boot it disables automatic login, leaving the standard
+  Ubuntu GDM greeter. Staff sign in with their separate Ubuntu administrator
+  account and receive the normal Ubuntu desktop.
+- On the next reboot the service-mode kernel parameter is absent, so GDM
+  restores kiosk automatic login. No manual mode reset is required.
+
+The service boot does not start the F1-F12 keyboard filter or the kiosk-session
+VT lock. It enables a tty3 text login as a recovery console; a systemd condition
+keeps that getty disabled on ordinary kiosk boots. The public kiosk session
+starts the filter and locks VT switching after GNOME Kiosk has acquired its
+graphical VT. F1-F12 are suppressed before they reach Chrome; ordinary keys
+are forwarded through a uinput keyboard.
+
+The installer generates a separate random GRUB password for the GRUB user
+`kiosk-admin`. GRUB may ask for the username and password when staff select
+the protected entry. The credentials are shown at the end of interactive
+installation and the password is stored root-only at
+`/root/yapdp-kiosk-grub-password.txt`. Only its PBKDF2 hash is written into
+the GRUB configuration. Retrieve the password locally with:
 
 ```bash
-sudo systemctl unmask ctrl-alt-del.target
-sudo rm -f /etc/sysctl.d/90-yapdp-kiosk.conf /etc/systemd/logind.conf.d/90-yapdp-kiosk.conf
-sudo sysctl kernel.sysrq=1
-sudo systemctl restart systemd-logind
+sudo cat /root/yapdp-kiosk-grub-password.txt
 ```
 
-None of this protects against firmware-level access: set a BIOS/UEFI
-administrator password, disable booting from removable media, and secure the
-chassis if the machine is reachable by visitors. The kiosk account is also
-locked (no usable password), so a getty prompt on an unused virtual terminal is
-not a usable way in.
+GRUB authentication protects the service entry, editing menu entries, and the
+GRUB command line. The normal kiosk entry remains available without a
+password. The installer suppresses stock Ubuntu kernel/recovery and firmware
+menu generators so the visible menu contains only the two managed entries.
+A small early GRUB generator hook reapplies that suppression whenever
+`update-grub` runs, including after kernel package updates.
+The current kernel is loaded through Ubuntu's `/vmlinuz` and `/initrd.img`
+symlinks, which are updated when kernel packages change.
+
+The keyboard filter requires `python3-evdev` and the Linux `uinput` module.
+Its logs are available with:
+
+```bash
+journalctl -u yapdp-kiosk-guard.service
+systemctl status yapdp-kiosk-guard.service
+```
+
+The installer also applies defence-in-depth settings:
+
+- `kernel.sysrq = 0` disables Magic SysRq.
+- `ctrl-alt-del.target` is masked.
+- logind ignores power, reboot, suspend, and hibernate keys. A long hardware
+  power-button hold remains a firmware-level power-off path.
+- `NAutoVTs=0` and `ReserveVT=0` prevent automatic spare gettys.
+
+This does not protect firmware setup, booting from external media, or physical
+disk access. Set a BIOS/UEFI administrator password, disable external boot
+where appropriate, and secure the chassis.
 
 ## GitHub Pages
 

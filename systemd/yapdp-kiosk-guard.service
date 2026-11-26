@@ -1,0 +1,27 @@
+[Unit]
+Description=yaPDP kiosk F1-F12 keyboard filter
+After=systemd-udevd.service
+Before=display-manager.service
+ConditionPathExists=/usr/local/lib/yapdp-kiosk/kiosk-guard.py
+ConditionKernelCommandLine=!yapdp.service_mode=1
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/yapdp-kiosk/kiosk-guard.py
+Restart=on-failure
+RestartSec=2
+User=root
+Group=root
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+# Keep the default device policy. Explicit DeviceAllow rules made
+# python-evdev list_devices() return an empty list on Ubuntu 24.04,
+# preventing the filter from discovering the physical keyboard.
+DevicePolicy=auto
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+[Install]
+WantedBy=multi-user.target

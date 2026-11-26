@@ -63,6 +63,16 @@ if ! dpkg-query -W -f='${Status}' gdm3 2>/dev/null | grep -q "install ok install
   exit 1
 fi
 
+# Capture the machine's original configuration exactly once, before changing
+# packages, accounts, boot settings, display manager, nginx, or systemd.
+KIOSK_HOME="$(getent passwd "$KIOSK_USER" | cut -d: -f6 || true)"
+if [[ -z "$KIOSK_HOME" ]]; then KIOSK_HOME="/home/$KIOSK_USER"; fi
+python3 "$KIOSK_DIR/scripts/capture-system-state.py" "$KIOSK_USER" "$KIOSK_HOME" "$KIOSK_DIR"
+install -d -o root -g root -m 0755 /usr/local/lib/yapdp-kiosk
+install -o root -g root -m 0755 "$KIOSK_DIR/scripts/restore-system-state.py" /usr/local/lib/yapdp-kiosk/restore-system-state.py
+install -o root -g root -m 0755 "$KIOSK_DIR/deactivate-kiosk.sh" /usr/local/sbin/deactivate-yapdp-kiosk
+install -o root -g root -m 0755 "$KIOSK_DIR/activate-kiosk.sh" /usr/local/sbin/activate-yapdp-kiosk
+
 yapdp_phase 15 "Installing GNOME Kiosk session components..."
 
 # Use GNOME's dedicated single-application session instead of a normal desktop
@@ -298,6 +308,24 @@ install -d -o "$KIOSK_USER" -g "$KIOSK_USER" -m 0750 "$USER_HOME/.config"
 install -d -o "$KIOSK_USER" -g "$KIOSK_USER" -m 0750 "$USER_HOME/.local"
 install -d -o "$KIOSK_USER" -g "$KIOSK_USER" -m 0750 "$USER_HOME/.local/bin"
 
+# Ubuntu's update-notifier starts from a system-wide XDG autostart entry and
+# can open Software Updater dialogs in a graphical session. Mask that entry
+# only for the public kiosk account; administrator sessions and package
+# security updates remain untouched. The file is included in the rollback
+# snapshot, including when upgrading an installation with an older snapshot.
+UPDATE_NOTIFIER_OVERRIDE="$USER_HOME/.config/autostart/update-notifier.desktop"
+install -d -o "$KIOSK_USER" -g "$KIOSK_USER" -m 0750 "$USER_HOME/.config/autostart"
+cat > "$UPDATE_NOTIFIER_OVERRIDE" <<'DESKTOP'
+[Desktop Entry]
+Type=Application
+Name=Update Notifier (disabled for yaPDP kiosk)
+Hidden=true
+X-GNOME-Autostart-enabled=false
+NoDisplay=true
+DESKTOP
+chown "$KIOSK_USER:$KIOSK_USER" "$UPDATE_NOTIFIER_OVERRIDE"
+chmod 0644 "$UPDATE_NOTIFIER_OVERRIDE"
+
 # GNOME Kiosk 46 reads its compositor background during session startup.
 # Configure the kiosk user's dconf database now, before GDM starts that session;
 # changing these settings from start-kiosk.sh would be too late.
@@ -491,12 +519,7 @@ PY
 
 yapdp_phase 85 "Hardening the kiosk against local key combinations..."
 
-# During a kiosk session the compositor's own shortcuts are disabled by
-# start-kiosk.sh, but three paths stay open to anyone touching the machine:
-# Magic SysRq (Alt+SysRq+B resets the box immediately, Alt+SysRq+K kills the
-# session), Ctrl+Alt+Del (clean reboot) and the power/reboot keys handled by
-# systemd-logind. None of them are needed by a visitor. A ~4 second hold of the
-# power button is handled by the firmware and still switches the machine off.
+# Disable kernel SysRq and the standard Ctrl+Alt+Del reboot path.
 KIOSK_LOGIND_DROPIN="/etc/systemd/logind.conf.d/90-yapdp-kiosk.conf"
 install -d -m 0755 "/etc/systemd/logind.conf.d"
 cat > "$KIOSK_LOGIND_DROPIN" <<'LOGIND'
@@ -508,7 +531,166 @@ HandlePowerKeyLongPress=poweroff
 HandleRebootKey=ignore
 HandleSuspendKey=ignore
 HandleHibernateKey=ignore
+# Do not spawn spare gettys automatically on the public exhibit.
+NAutoVTs=0
+ReserveVT=0
 LOGIND
+
+# Install the F1-F12 keyboard filter and kiosk-session VT lock helper.
+# The filter is disabled automatically on a GRUB service-mode boot.
+yapdp_run_with_spinner "Installing keyboard event support" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y python3-evdev
+modprobe uinput
+install -d -m 0755 /etc/modules-load.d
+printf 'uinput\n' > /etc/modules-load.d/yapdp-kiosk.conf
+
+GUARD_DIR="/usr/local/lib/yapdp-kiosk"
+install -d -o root -g root -m 0755 "$GUARD_DIR"
+install -o root -g root -m 0755 "$KIOSK_DIR/scripts/kiosk-guard.py" "$GUARD_DIR/kiosk-guard.py"
+install -o root -g root -m 0755 "$KIOSK_DIR/scripts/configure-gdm-boot-mode.py" "$GUARD_DIR/configure-gdm-boot-mode.py"
+install -o root -g root -m 0755 "$KIOSK_DIR/scripts/vt-switch-lock.py" /usr/local/sbin/yapdp-vt-switch-lock
+install -o root -g root -m 0644 "$KIOSK_DIR/systemd/yapdp-kiosk-guard.service" /etc/systemd/system/yapdp-kiosk-guard.service
+install -d -m 0755 /etc/systemd/system/gdm3.service.d
+install -o root -g root -m 0644 "$KIOSK_DIR/systemd/gdm3.service.d/10-yapdp-boot-mode.conf" /etc/systemd/system/gdm3.service.d/10-yapdp-boot-mode.conf
+install -d -m 0755 "/etc/systemd/system/getty@tty3.service.d"
+install -o root -g root -m 0644 "$KIOSK_DIR/systemd/getty@tty3.service.d/10-yapdp-service-mode.conf" "/etc/systemd/system/getty@tty3.service.d/10-yapdp-service-mode.conf"
+
+KIOSK_SUDOERS="/etc/sudoers.d/yapdp-kiosk-vt-lock"
+printf '%s ALL=(root) NOPASSWD: /usr/local/sbin/yapdp-vt-switch-lock lock\n' "$KIOSK_USER" > "$KIOSK_SUDOERS"
+chmod 0440 "$KIOSK_SUDOERS"
+if ! visudo -cf "$KIOSK_SUDOERS" >/dev/null; then
+  rm -f "$KIOSK_SUDOERS"
+  echo "Invalid sudoers rule for the virtual-terminal lock." >&2
+  exit 1
+fi
+
+# GDM decides whether to auto-login immediately before it starts. The kernel
+# command line marks only this one boot as service mode; the next boot naturally
+# returns to kiosk auto-login without changing persistent GRUB defaults.
+install -d -o root -g root -m 0700 /etc/yapdp-kiosk
+# Remove the obsolete per-keyboard service trigger from earlier draft installs.
+rm -f /etc/yapdp-kiosk/guard.conf /root/yapdp-kiosk-service-sequence.txt
+python3 - "$KIOSK_USER" /etc/yapdp-kiosk/boot-mode.json <<'PY'
+import json, os, sys
+from pathlib import Path
+target = Path(sys.argv[2])
+target.write_text(json.dumps({"kiosk_user": sys.argv[1]}) + "\n", encoding="utf-8")
+os.chown(target, 0, 0)
+os.chmod(target, 0o600)
+PY
+
+# Create a separate GRUB password once. The cleartext copy is root-only and
+# shown to staff at the end of the interactive installation; GRUB stores only
+# its PBKDF2 hash.
+if ! command -v grub-mkpasswd-pbkdf2 >/dev/null 2>&1 ||
+   ! command -v update-grub >/dev/null 2>&1 ||
+   ! command -v grub-probe >/dev/null 2>&1 ||
+   ! command -v grub-script-check >/dev/null 2>&1; then
+  echo "Required GRUB utilities are missing (grub-common/grub2-common)." >&2
+  exit 1
+fi
+GRUB_PASSWORD_FILE="/root/yapdp-kiosk-grub-password.txt"
+GRUB_PASSWORD_PATTERN='^[BCDFGHJKLMNPRSTVWZ][AEUY][BCDFGHJKLMNPRSTVWZ][AEUY][234679][BCDFGHJKLMNPRSTVWZ][AEUY][BCDFGHJKLMNPRSTVWZ]$'
+GRUB_PASSWORD_TMP=""
+SAVED_GRUB_PASSWORD=""
+if [[ -s "$GRUB_PASSWORD_FILE" ]]; then
+  SAVED_GRUB_PASSWORD="$(cat "$GRUB_PASSWORD_FILE")"
+fi
+
+# Reuse a current-format password on reinstall. Older 24-digit passwords are
+# rotated once to the shorter pronounceable format.
+if [[ "$SAVED_GRUB_PASSWORD" =~ $GRUB_PASSWORD_PATTERN ]]; then
+  GRUB_PASSWORD="$SAVED_GRUB_PASSWORD"
+else
+  GRUB_PASSWORD_TMP="$(mktemp /root/.yapdp-kiosk-grub-password.XXXXXX)"
+  python3 "$KIOSK_DIR/scripts/generate-grub-password.py" > "$GRUB_PASSWORD_TMP"
+  chown root:root "$GRUB_PASSWORD_TMP"
+  chmod 0600 "$GRUB_PASSWORD_TMP"
+  GRUB_PASSWORD="$(cat "$GRUB_PASSWORD_TMP")"
+fi
+if [[ ! "$GRUB_PASSWORD" =~ $GRUB_PASSWORD_PATTERN ]]; then
+  echo "The generated GRUB password has an invalid format." >&2
+  [[ -n "$GRUB_PASSWORD_TMP" ]] && rm -f "$GRUB_PASSWORD_TMP"
+  exit 1
+fi
+GRUB_HASH_OUTPUT="$(printf '%s\n%s\n' "$GRUB_PASSWORD" "$GRUB_PASSWORD" | grub-mkpasswd-pbkdf2 2>/dev/null)"
+GRUB_PASSWORD_HASH="$(printf '%s\n' "$GRUB_HASH_OUTPUT" | grep -oE 'grub\.pbkdf2\.sha512\.[0-9]+\.[A-Fa-f0-9]+\.[A-Fa-f0-9]+' | tail -n 1)"
+if [[ -z "$GRUB_PASSWORD_HASH" ]]; then
+  echo "Could not generate the GRUB PBKDF2 password hash." >&2
+  exit 1
+fi
+GRUB_AUTH_SCRIPT="/etc/grub.d/08_yapdp_kiosk_auth"
+cat > "$GRUB_AUTH_SCRIPT" <<AUTH
+#!/bin/sh
+cat <<'YAPDP_GRUB_AUTH'
+set superusers="kiosk-admin"
+password_pbkdf2 kiosk-admin $GRUB_PASSWORD_HASH
+YAPDP_GRUB_AUTH
+AUTH
+chown root:root "$GRUB_AUTH_SCRIPT"
+chmod 0755 "$GRUB_AUTH_SCRIPT"
+
+install -o root -g root -m 0755 "$KIOSK_DIR/scripts/grub/01_yapdp_disable_stock" /etc/grub.d/01_yapdp_disable_stock
+install -o root -g root -m 0755 "$KIOSK_DIR/scripts/grub/09_yapdp_kiosk" /etc/grub.d/09_yapdp_kiosk
+
+# Suppress Ubuntu's generic entries so the visitor/staff boot menu has exactly
+# the two supported choices. Keep the scripts on disk for package ownership
+# and recovery; only their executable bits are disabled.
+for script in 10_linux 10_linux_zfs 20_linux_xen 20_memtest86+ 30_os-prober 30_uefi-firmware 40_custom 41_custom; do
+  if [[ -f "/etc/grub.d/$script" ]]; then
+    chmod a-x "/etc/grub.d/$script"
+  fi
+done
+
+python3 - /etc/default/grub <<'PY'
+from pathlib import Path
+import re, sys
+path = Path(sys.argv[1])
+lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+settings = {
+    "GRUB_DEFAULT": "yapdp-kiosk",
+    "GRUB_TIMEOUT_STYLE": "hidden",
+    "GRUB_TIMEOUT": "5",
+    "GRUB_DISABLE_OS_PROBER": "true",
+    "GRUB_DISABLE_RECOVERY": "true",
+    "GRUB_SAVEDEFAULT": "false",
+}
+seen, output = set(), []
+for line in lines:
+    match = re.match(r"^\s*#?\s*(GRUB_DEFAULT|GRUB_TIMEOUT_STYLE|GRUB_TIMEOUT|GRUB_DISABLE_OS_PROBER|GRUB_DISABLE_RECOVERY|GRUB_SAVEDEFAULT)\s*=", line)
+    if match:
+        key = match.group(1)
+        if key not in seen:
+            output.append(f"{key}={settings[key]}")
+            seen.add(key)
+        continue
+    output.append(line)
+for key, value in settings.items():
+    if key not in seen:
+        output.append(f"{key}={value}")
+path.write_text("\n".join(output) + "\n", encoding="utf-8")
+PY
+
+systemctl daemon-reload
+systemctl enable yapdp-kiosk-guard.service getty@tty3.service
+update-grub
+GRUB_MENU_COUNT="$(grep -c '^menuentry ' /boot/grub/grub.cfg || true)"
+if [[ "$GRUB_MENU_COUNT" != "2" ]]; then
+  echo "Expected exactly two GRUB menu entries, found $GRUB_MENU_COUNT." >&2
+  echo "Inspect /boot/grub/grub.cfg and /etc/grub.d before rebooting." >&2
+  exit 1
+fi
+if ! grub-script-check /boot/grub/grub.cfg; then
+  echo "Generated GRUB configuration failed grub-script-check." >&2
+  exit 1
+fi
+
+# Publish a newly generated password only after the new GRUB configuration
+# has been generated and validated, keeping the saved credential in sync.
+if [[ -n "$GRUB_PASSWORD_TMP" ]]; then
+  mv -f -- "$GRUB_PASSWORD_TMP" "$GRUB_PASSWORD_FILE"
+  chown root:root "$GRUB_PASSWORD_FILE"
+  chmod 0600 "$GRUB_PASSWORD_FILE"
+fi
 
 KIOSK_SYSCTL_DROPIN="/etc/sysctl.d/90-yapdp-kiosk.conf"
 cat > "$KIOSK_SYSCTL_DROPIN" <<'SYSCTL'
@@ -526,13 +708,17 @@ yapdp_phase 95 "Enabling the local web server and finalizing setup..."
 
 systemctl enable --now nginx
 systemctl reload nginx
+systemctl restart yapdp-kiosk-guard.service
 
 echo
 echo "yaPDP kiosk nginx site installed."
 echo "Kiosk account: $KIOSK_USER"
 echo "GNOME Kiosk Wayland session selected for GDM automatic login."
-echo "GDM automatic login enabled for that account (effective after reboot)."
-echo "Keyboard hardening: SysRq disabled, Ctrl+Alt+Del masked, power/reboot keys ignored."
+echo "GDM auto-login configured for normal kiosk boots; service boots use the standard greeter."
+echo "Keyboard filter: active in kiosk mode; F1-F12 are suppressed."
+echo "GRUB menu: Load yaPDP-kiosk / Enter service mode (password protected)."
+echo "GRUB username: kiosk-admin"
+echo "GRUB password file: /root/yapdp-kiosk-grub-password.txt"
 echo "Kiosk URL: http://127.0.0.1:8080/"
 echo "yaPDP URL: http://127.0.0.1:8080/yapdp/pdp11.html"
 if ! command -v google-chrome-stable >/dev/null 2>&1 &&
@@ -542,3 +728,6 @@ fi
 echo "The kiosk account is not an administrator; use a separate admin account for maintenance."
 echo "Detailed installation log: ${LOG_FILE:-$YAPDP_INSTALL_LOG}"
 yapdp_phase 100 "Kiosk installation completed."
+
+# Show the private GRUB password only after all installation output.
+bash "$KIOSK_DIR/scripts/show-grub-password.sh"

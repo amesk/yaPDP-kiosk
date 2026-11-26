@@ -1,0 +1,31 @@
+name: Validate kiosk scripts
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  syntax-and-unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Check shell syntax
+        run: |
+          bash -n instant-setup.sh
+          bash -n activate-kiosk.sh
+          bash -n deactivate-kiosk.sh
+          bash -n legacy-deactivate-kiosk.sh
+          bash -n install/ubuntu-24.04.sh
+          bash -n lib/installer-ui.sh
+          bash -n start-kiosk.sh
+          bash -n scripts/show-grub-password.sh
+          sh -n scripts/grub/01_yapdp_disable_stock
+          sh -n scripts/grub/09_yapdp_kiosk
+      - name: Check Python syntax
+        run: python -m compileall -q scripts tests
+      - name: Run Python unit tests
+        run: python -m unittest discover -s tests -v
