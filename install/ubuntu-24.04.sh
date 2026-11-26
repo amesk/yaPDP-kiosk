@@ -308,6 +308,24 @@ install -d -o "$KIOSK_USER" -g "$KIOSK_USER" -m 0750 "$USER_HOME/.config"
 install -d -o "$KIOSK_USER" -g "$KIOSK_USER" -m 0750 "$USER_HOME/.local"
 install -d -o "$KIOSK_USER" -g "$KIOSK_USER" -m 0750 "$USER_HOME/.local/bin"
 
+# Ubuntu's update-notifier starts from a system-wide XDG autostart entry and
+# can open Software Updater dialogs in a graphical session. Mask that entry
+# only for the public kiosk account; administrator sessions and package
+# security updates remain untouched. The file is included in the rollback
+# snapshot, including when upgrading an installation with an older snapshot.
+UPDATE_NOTIFIER_OVERRIDE="$USER_HOME/.config/autostart/update-notifier.desktop"
+install -d -o "$KIOSK_USER" -g "$KIOSK_USER" -m 0750 "$USER_HOME/.config/autostart"
+cat > "$UPDATE_NOTIFIER_OVERRIDE" <<'DESKTOP'
+[Desktop Entry]
+Type=Application
+Name=Update Notifier (disabled for yaPDP kiosk)
+Hidden=true
+X-GNOME-Autostart-enabled=false
+NoDisplay=true
+DESKTOP
+chown "$KIOSK_USER:$KIOSK_USER" "$UPDATE_NOTIFIER_OVERRIDE"
+chmod 0644 "$UPDATE_NOTIFIER_OVERRIDE"
+
 # GNOME Kiosk 46 reads its compositor background during session startup.
 # Configure the kiosk user's dconf database now, before GDM starts that session;
 # changing these settings from start-kiosk.sh would be too late.
