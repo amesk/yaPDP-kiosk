@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+"""Generate short, pronounceable GRUB service passwords.
+
+The fixed CVCVCDCD shape keeps the credential easy to read aloud while
+secrets.choice supplies independent cryptographic randomness at every slot.
+"""
+
+from __future__ import annotations
+
+import secrets
+
+CONSONANTS = "BCDFGHJKLMNPRSTVWZ"
+VOWELS = "AEUY"
+DIGITS = "234679"
+PASSWORD_PATTERN = (
+    f"[{CONSONANTS}][{VOWELS}][{CONSONANTS}][{VOWELS}]"
+    f"[{CONSONANTS}][{DIGITS}][{CONSONANTS}][{DIGITS}]"
+)
+
+
+def generate_password() -> str:
+    """Return an eight-character CVCVCDCD password."""
+    pools = (CONSONANTS, VOWELS, CONSONANTS, VOWELS,
+             CONSONANTS, DIGITS, CONSONANTS, DIGITS)
+    return "".join(secrets.choice(pool) for pool in pools)
+
+
+if __name__ == "__main__":
+    print(generate_password())
