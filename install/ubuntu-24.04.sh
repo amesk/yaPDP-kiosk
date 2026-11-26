@@ -523,6 +523,8 @@ install -o root -g root -m 0755 "$KIOSK_DIR/scripts/vt-switch-lock.py" /usr/loca
 install -o root -g root -m 0644 "$KIOSK_DIR/systemd/yapdp-kiosk-guard.service" /etc/systemd/system/yapdp-kiosk-guard.service
 install -d -m 0755 /etc/systemd/system/gdm3.service.d
 install -o root -g root -m 0644 "$KIOSK_DIR/systemd/gdm3.service.d/10-yapdp-boot-mode.conf" /etc/systemd/system/gdm3.service.d/10-yapdp-boot-mode.conf
+install -d -m 0755 "/etc/systemd/system/getty@tty3.service.d"
+install -o root -g root -m 0644 "$KIOSK_DIR/systemd/getty@tty3.service.d/10-yapdp-service-mode.conf" "/etc/systemd/system/getty@tty3.service.d/10-yapdp-service-mode.conf"
 
 KIOSK_SUDOERS="/etc/sudoers.d/yapdp-kiosk-vt-lock"
 printf '%s ALL=(root) NOPASSWD: /usr/local/sbin/yapdp-vt-switch-lock lock\n' "$KIOSK_USER" > "$KIOSK_SUDOERS"
