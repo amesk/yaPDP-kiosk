@@ -1,0 +1,36 @@
+#!/bin/sh
+# Emit two managed entries. /vmlinuz and /initrd.img track Ubuntu's current kernel.
+set -eu
+set -f
+[ ! -r /etc/default/grub ] || . /etc/default/grub
+ROOT_UUID="$(grub-probe --target=fs_uuid /)"
+BOOT_UUID="$(grub-probe --target=fs_uuid /boot)"
+if [ -z "$ROOT_UUID" ] || [ -z "$BOOT_UUID" ]; then
+    echo "yaPDP GRUB: could not determine root or /boot filesystem UUID" >&2
+    exit 1
+fi
+if [ ! -e /vmlinuz ] || [ ! -e /initrd.img ]; then
+    echo "yaPDP GRUB: expected /vmlinuz and /initrd.img symlinks" >&2
+    exit 1
+fi
+KERNEL_ARGS="${GRUB_CMDLINE_LINUX_DEFAULT:-} ${GRUB_CMDLINE_LINUX:-}"
+for argument in $KERNEL_ARGS; do
+    case "$argument" in
+        *[!A-Za-z0-9_.=,:/+@-]*)
+            echo "yaPDP GRUB: unsupported character in kernel argument: $argument" >&2
+            exit 1 ;;
+    esac
+done
+cat <<EOF
+menuentry 'Load yaPDP-kiosk' --unrestricted --id yapdp-kiosk {
+    search --no-floppy --fs-uuid --set=root $BOOT_UUID
+    linux /vmlinuz root=UUID=$ROOT_UUID ro $KERNEL_ARGS
+    initrd /initrd.img
+}
+
+menuentry 'Enter service mode' --users kiosk-admin --id yapdp-service {
+    search --no-floppy --fs-uuid --set=root $BOOT_UUID
+    linux /vmlinuz root=UUID=$ROOT_UUID ro $KERNEL_ARGS yapdp.service_mode=1 systemd.unit=graphical.target
+    initrd /initrd.img
+}
+EOF
