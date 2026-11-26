@@ -17,10 +17,6 @@ systemctl disable --now yapdp-kiosk-guard.service 2>/dev/null || true
 systemctl stop nginx.service 2>/dev/null || true
 # Restore all captured files, including the original nginx site symlink and GRUB generators.
 python3 "$RESTORE"
-rm -f /root/yapdp-kiosk-grub-password.txt
-rm -f /usr/local/lib/yapdp-kiosk/kiosk-guard.py /usr/local/lib/yapdp-kiosk/configure-gdm-boot-mode.py
-rmdir /usr/local/lib/yapdp-kiosk 2>/dev/null || true
-rm -f /usr/local/sbin/yapdp-vt-switch-lock
 systemctl daemon-reload
 systemctl unmask ctrl-alt-del.target >/dev/null 2>&1 || true
 sysctl --system >/dev/null 2>&1 || true
