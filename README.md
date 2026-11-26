@@ -313,8 +313,10 @@ VT lock. The public kiosk session starts the filter and locks VT switching
 after GNOME Kiosk has acquired its graphical VT. F1-F12 are suppressed before
 they reach Chrome; ordinary keys are forwarded through a uinput keyboard.
 
-The installer generates a separate random GRUB password. It is shown at the
-end of interactive installation and stored root-only at
+The installer generates a separate random GRUB password for the GRUB user
+`kiosk-admin`. GRUB may ask for the username and password when staff select
+the protected entry. The credentials are shown at the end of interactive
+installation and the password is stored root-only at
 `/root/yapdp-kiosk-grub-password.txt`. Only its PBKDF2 hash is written into
 the GRUB configuration. Retrieve the password locally with:
 
@@ -326,6 +328,8 @@ GRUB authentication protects the service entry, editing menu entries, and the
 GRUB command line. The normal kiosk entry remains available without a
 password. The installer suppresses stock Ubuntu kernel/recovery and firmware
 menu generators so the visible menu contains only the two managed entries.
+A small early GRUB generator hook reapplies that suppression whenever
+`update-grub` runs, including after kernel package updates.
 The current kernel is loaded through Ubuntu's `/vmlinuz` and `/initrd.img`
 symlinks, which are updated when kernel packages change.
 
