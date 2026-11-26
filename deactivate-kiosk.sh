@@ -3,9 +3,9 @@ set -euo pipefail
 if [[ "$EUID" -ne 0 ]]; then echo "Run with sudo: sudo $0" >&2; exit 1; fi
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 RESTORE="$SCRIPT_DIR/scripts/restore-system-state.py"
-if [[ ! -x "$RESTORE" ]]; then
-  echo "Restore helper not found: $RESTORE" >&2
-  echo "Run this script from the yaPDP-kiosk repository, or restore from its original checkout." >&2
+if [[ ! -f "$RESTORE" ]]; then RESTORE="/usr/local/lib/yapdp-kiosk/restore-system-state.py"; fi
+if [[ ! -f "$RESTORE" ]]; then
+  echo "Restore helper not found; refusing to change the machine." >&2
   exit 1
 fi
 STATE="/var/lib/yapdp-kiosk/original-state"
@@ -18,7 +18,6 @@ systemctl stop nginx.service 2>/dev/null || true
 # Restore all captured files, including the original nginx site symlink and GRUB generators.
 python3 "$RESTORE"
 rm -f /root/yapdp-kiosk-grub-password.txt
-rm -rf /etc/yapdp-kiosk
 rm -f /usr/local/lib/yapdp-kiosk/kiosk-guard.py /usr/local/lib/yapdp-kiosk/configure-gdm-boot-mode.py
 rmdir /usr/local/lib/yapdp-kiosk 2>/dev/null || true
 rm -f /usr/local/sbin/yapdp-vt-switch-lock
