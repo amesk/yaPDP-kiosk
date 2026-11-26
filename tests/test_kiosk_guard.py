@@ -33,11 +33,15 @@ class EventFilteringTests(unittest.TestCase):
         self.assertEqual(virtual.events, [(1, 30, 1), (1, 97, 1)])
     def test_keyboard_detected_without_right_side_modifiers(self):
         class Device:
+            path = "/dev/input/event-test"
+            name = "Test keyboard"
             def capabilities(self): return {1: [30, 28, 1, 42, 29]}
         self.assertTrue(MODULE.is_keyboard(Device()))
 
     def test_mouse_is_not_detected_as_keyboard(self):
         class Device:
+            path = "/dev/input/event-test"
+            name = "Test mouse"
             def capabilities(self): return {1: [272, 273, 274]}
         self.assertFalse(MODULE.is_keyboard(Device()))
 
