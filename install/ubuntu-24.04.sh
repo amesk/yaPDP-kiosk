@@ -573,7 +573,7 @@ os.chmod(path, 0o600)
 PY
 fi
 GRUB_PASSWORD="$(cat "$GRUB_PASSWORD_FILE")"
-if [[ ! "$GRUB_PASSWORD" =~ ^[0-9]{24}$ ]]; then
+if [[ ! "$GRUB_PASSWORD" =~ ^[A-Za-z0-9]{24}$ ]]; then
   echo "The saved GRUB password has an invalid format: $GRUB_PASSWORD_FILE" >&2
   exit 1
 fi
