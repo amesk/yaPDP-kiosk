@@ -24,7 +24,7 @@ paths = [
  "/etc/grub.d/40_custom", "/etc/grub.d/41_custom", "/etc/gdm3/custom.conf",
  "/etc/update-manager/release-upgrades", "/etc/nginx/sites-available/yapdp-kiosk",
  "/etc/nginx/sites-enabled/yapdp-kiosk", "/etc/xdg/autostart/yapdp-kiosk.desktop",
- "/etc/yapdp-kiosk/boot-mode.json", "/etc/systemd/system/yapdp-kiosk-guard.service",
+ "/etc/yapdp-kiosk/boot-mode.json", "/root/yapdp-kiosk-grub-password.txt", "/etc/systemd/system/yapdp-kiosk-guard.service",
  "/etc/systemd/system/gdm3.service.d/10-yapdp-boot-mode.conf",
  "/etc/systemd/system/getty@tty3.service.d/10-yapdp-service-mode.conf",
  "/etc/systemd/system/logind.conf.d/90-yapdp-kiosk.conf",
@@ -40,6 +40,7 @@ paths = [
  f"/var/lib/AccountsService/users/{USER}",
 ]
 services = ["nginx.service", "gdm3.service", "yapdp-kiosk-guard.service", "getty@tty3.service"]
+account_existed = subprocess.run(["id", USER], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
 STATE.mkdir(parents=True, mode=0o700)
 files = {}
 for raw in paths:
@@ -64,7 +65,7 @@ for service in services:
     enabled = subprocess.run(["systemctl","is-enabled",service],capture_output=True,text=True).stdout.strip()
     active = subprocess.run(["systemctl","is-active",service],capture_output=True,text=True).stdout.strip()
     service_state[service] = {"enabled":enabled or "unknown", "active":active or "unknown"}
-manifest = {"version":1,"kiosk_user":USER,"kiosk_home":str(HOME),"files":files,"services":service_state}
+manifest = {"version":1,"kiosk_user":USER,"kiosk_home":str(HOME),"account_existed":account_existed,"files":files,"services":service_state}
 tmp = STATE / "manifest.json.tmp"
 tmp.write_text(json.dumps(manifest,indent=2)+"\n")
 os.chmod(tmp,0o600)
