@@ -88,6 +88,10 @@ The bootstrap:
   automatic login.
 - Removes the legacy desktop autostart entry; Chrome runs as the kiosk session's
   foreground application, not on top of a normal GNOME desktop.
+- Masks Ubuntu's `update-notifier` XDG autostart entry for the kiosk account
+  only, preventing Software Updater dialogs from appearing over the exhibit.
+  The administrator's desktop and normal package/security updates are not
+  disabled.
 - Installs/configures nginx on **127.0.0.1:8080** only.
 - Keeps application files root-owned and readable by the kiosk account.
 
@@ -101,6 +105,12 @@ automatic login and configures the kiosk user's AccountsService session
 preference to `gnome-kiosk-script-wayland`. Review these settings if the machine
 already has a customized display-manager policy. The change takes effect after
 reboot.
+
+Ubuntu's Software Updater notification is masked with a user-level XDG autostart
+override in the kiosk account. This suppresses the visitor-facing update dialog;
+it does not disable APT, unattended security updates, or update notifications
+in the administrator's own session. The override is part of the original-state
+snapshot and is restored by kiosk deactivation.
 
 The kiosk account uses GNOME Kiosk Script Session rather than a normal GNOME
 desktop. The session launches the user's `~/.local/bin/gnome-kiosk-script`; that
