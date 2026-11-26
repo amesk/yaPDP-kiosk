@@ -14,6 +14,35 @@ if STATE.exists():
     data = json.loads(manifest.read_text())
     if data.get("kiosk_user") != USER or data.get("kiosk_home") != str(HOME) or data.get("kiosk_dir") != str(KIOSK_DIR):
         raise SystemExit("Existing original-state backup belongs to a different kiosk account.")
+
+    # Extend older snapshots when a newer installer starts managing another
+    # file. Capture its current state before the installer changes it, without
+    # replacing any of the original entries already in the manifest.
+    raw = str(HOME / ".config/autostart/update-notifier.desktop")
+    files = data.setdefault("files", {})
+    if raw not in files:
+        path = Path(raw)
+        key = raw.lstrip("/")
+        if path.is_symlink():
+            target = os.readlink(path)
+            files[raw] = {"kind": "symlink", "target": target}
+            dest = STATE / "files" / key
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.symlink_to(target)
+        elif path.is_file():
+            st = path.stat()
+            files[raw] = {"kind": "file", "mode": st.st_mode & 0o777, "uid": st.st_uid, "gid": st.st_gid}
+            dest = STATE / "files" / key
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(path, dest)
+        else:
+            files[raw] = {"kind": "absent"}
+        tmp = STATE / "manifest.json.tmp"
+        tmp.write_text(json.dumps(data, indent=2) + "\\n")
+        os.chmod(tmp, 0o600)
+        tmp.replace(manifest)
+        print(f"Extended original-state backup with {raw}")
+
     print(f"Original system state already captured: {STATE}")
     raise SystemExit(0)
 
@@ -38,6 +67,7 @@ paths = [
  str(HOME / ".config/gnome-initial-setup-done"),
  str(HOME / ".config/dconf/user"),
  str(HOME / ".config/autostart/yapdp-kiosk.desktop"),
+ str(HOME / ".config/autostart/update-notifier.desktop"),
  f"/var/lib/AccountsService/users/{USER}",
 ]
 directories = ["/etc/yapdp-kiosk", "/etc/systemd/system/gdm3.service.d", "/etc/systemd/system/getty@tty3.service.d", "/etc/systemd/logind.conf.d", "/etc/sysctl.d", "/etc/modules-load.d", "/usr/local/lib/yapdp-kiosk", "/var/lib/AccountsService/users", str(HOME / ".config"), str(HOME / ".local"), str(HOME / ".local/bin"), str(HOME / ".config/dconf"), str(HOME / ".config/autostart")]
