@@ -29,7 +29,17 @@ class EventFilteringTests(unittest.TestCase):
         MODULE.forward_event(virtual, SimpleNamespace(type=1, code=30, value=1))
         MODULE.forward_event(virtual, SimpleNamespace(type=1, code=97, value=1))
         self.assertEqual(virtual.events, [(1, 30, 1), (1, 97, 1)])
-    def test_keyboard_detected_without_right_side_modifiers(self):\n        class Device:\n            def capabilities(self): return {1: [30, 28, 1, 42, 29]}\n        self.assertTrue(MODULE.is_keyboard(Device()))\n    def test_mouse_is_not_detected_as_keyboard(self):\n        class Device:\n            def capabilities(self): return {1: [272, 273, 274]}\n        self.assertFalse(MODULE.is_keyboard(Device()))\n    def test_syn_report_is_forwarded(self):
+    def test_keyboard_detected_without_right_side_modifiers(self):
+        class Device:
+            def capabilities(self): return {1: [30, 28, 1, 42, 29]}
+        self.assertTrue(MODULE.is_keyboard(Device()))
+
+    def test_mouse_is_not_detected_as_keyboard(self):
+        class Device:
+            def capabilities(self): return {1: [272, 273, 274]}
+        self.assertFalse(MODULE.is_keyboard(Device()))
+
+    def test_syn_report_is_forwarded(self):
         virtual = self.VirtualDevice()
         MODULE.forward_event(virtual, SimpleNamespace(type=0, code=0, value=0))
         self.assertEqual(virtual.events, [("syn",)])
