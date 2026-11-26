@@ -65,7 +65,7 @@ fi
 
 # Capture the machine's original configuration exactly once, before changing
 # packages, accounts, boot settings, display manager, nginx, or systemd.
-KIOSK_HOME="$(getent passwd "$KIOSK_USER" | cut -d: -f6)"
+KIOSK_HOME="$(getent passwd "$KIOSK_USER" | cut -d: -f6 || true)"
 if [[ -z "$KIOSK_HOME" ]]; then KIOSK_HOME="/home/$KIOSK_USER"; fi
 python3 "$KIOSK_DIR/scripts/capture-system-state.py" "$KIOSK_USER" "$KIOSK_HOME" "$KIOSK_DIR"
 install -d -o root -g root -m 0755 /usr/local/lib/yapdp-kiosk
