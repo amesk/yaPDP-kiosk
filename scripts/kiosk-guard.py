@@ -70,6 +70,7 @@ def main():
 
     devices, virtuals, next_scan = {}, {}, 0.0
     open_errors = set()
+    last_enumerated_paths = None
 
     while True:
         now = time.monotonic()
@@ -77,9 +78,19 @@ def main():
             next_scan = now + SCAN_SECONDS
             try:
                 current = set(list_devices())
-            except OSError:
+            except Exception:
                 logging.exception("Cannot enumerate input devices")
                 current = set()
+
+            # Log the initial enumeration and any later hot-plug changes, without
+            # flooding the journal with an entry every second.
+            if current != last_enumerated_paths:
+                logging.info(
+                    "Input scan: %d event device(s): %s",
+                    len(current),
+                    ", ".join(sorted(current)) if current else "<none>",
+                )
+                last_enumerated_paths = set(current)
 
             for path in list(devices):
                 if path not in current:
