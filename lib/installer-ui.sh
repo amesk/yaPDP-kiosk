@@ -23,6 +23,14 @@ yapdp_log_init() {
   trap 'yapdp_log_error $? $LINENO "$BASH_COMMAND"' ERR
 }
 
+# Keep the operator terminal clean after every error dialog.
+yapdp_dialog() {
+  local status=0
+  dialog "$@" || status=$?
+  clear > /dev/tty 2>&1 || printf '\\033[H\\033[2J\\033[3J' > /dev/tty 2>/dev/null || true
+  return "$status"
+}
+
 yapdp_log_error() {
   local status="$1" line="$2" command="$3"
   trap - ERR
@@ -33,7 +41,7 @@ yapdp_log_error() {
     echo "===== installation failed: $(date --iso-8601=seconds) ====="
   } >> "${LOG_FILE:-/dev/null}"
   if [[ -t 0 && -t 1 && -r /dev/tty ]] && command -v dialog >/dev/null 2>&1; then
-    dialog --title "yaPDP Kiosk Setup — Error" --msgbox \
+    yapdp_dialog --title "yaPDP Kiosk Setup — Error" --msgbox \
       "Installation failed (exit code $status).\n\nDetailed diagnostics were saved to:\n${LOG_FILE:-unknown}" 10 78 < /dev/tty || true
   else
     echo "Installation failed (exit code $status). Log: ${LOG_FILE:-not available}" >&2
