@@ -7,7 +7,9 @@ try:
 except ImportError as exc:
     raise SystemExit("python3-evdev is required: apt install python3-evdev") from exc
 FUNCTION_KEYS = frozenset((*range(59, 69), 87, 88))
-KEYBOARD_MARKERS = frozenset((ecodes.KEY_A, ecodes.KEY_ENTER, ecodes.KEY_SPACE, ecodes.KEY_ESC,\n                              ecodes.KEY_LEFTCTRL, ecodes.KEY_LEFTALT, ecodes.KEY_LEFTSHIFT,\n                              ecodes.KEY_RIGHTCTRL, ecodes.KEY_RIGHTALT, ecodes.KEY_RIGHTSHIFT))
+KEYBOARD_MARKERS = frozenset((ecodes.KEY_A, ecodes.KEY_ENTER, ecodes.KEY_SPACE, ecodes.KEY_ESC,
+                              ecodes.KEY_LEFTCTRL, ecodes.KEY_LEFTALT, ecodes.KEY_LEFTSHIFT,
+                              ecodes.KEY_RIGHTCTRL, ecodes.KEY_RIGHTALT, ecodes.KEY_RIGHTSHIFT))
 SCAN_SECONDS = 1.0
 VIRTUAL_PREFIX = "yaPDP filtered keyboard ("
 def forward_event(virtual_device, event):
@@ -32,7 +34,8 @@ def main():
         format="%(asctime)s yapdp-kiosk-keyboard-filter %(levelname)s: %(message)s",
         handlers=[logging.StreamHandler(sys.stdout)])
     logging.info("F1-F12 keyboard filter started")
-    devices, virtuals, next_scan = {}, {}, 0.0\n    warned_no_keyboard = False
+    devices, virtuals, next_scan = {}, {}, 0.0
+    warned_no_keyboard = False
     while True:
         now = time.monotonic()
         if now >= next_scan:
