@@ -309,9 +309,11 @@ Before GDM starts, a small boot-mode hook reads the kernel command line:
   restores kiosk automatic login. No manual mode reset is required.
 
 The service boot does not start the F1-F12 keyboard filter or the kiosk-session
-VT lock. The public kiosk session starts the filter and locks VT switching
-after GNOME Kiosk has acquired its graphical VT. F1-F12 are suppressed before
-they reach Chrome; ordinary keys are forwarded through a uinput keyboard.
+VT lock. It enables a tty3 text login as a recovery console; a systemd condition
+keeps that getty disabled on ordinary kiosk boots. The public kiosk session
+starts the filter and locks VT switching after GNOME Kiosk has acquired its
+graphical VT. F1-F12 are suppressed before they reach Chrome; ordinary keys
+are forwarded through a uinput keyboard.
 
 The installer generates a separate random GRUB password for the GRUB user
 `kiosk-admin`. GRUB may ask for the username and password when staff select
