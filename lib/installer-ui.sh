@@ -4,6 +4,12 @@
 yapdp_log_init() {
   if [[ -n "${YAPDP_INSTALL_LOG:-}" ]]; then
     LOG_FILE="$YAPDP_INSTALL_LOG"
+    # A parent bootstrap may already own the output redirection, but this
+    # process still needs its own ERR trap so child-installer failures are
+    # recorded in the shared log with the failing command and line number.
+    trap 'yapdp_log_error $? $LINENO "$BASH_COMMAND"' ERR
+    echo "===== yaPDP kiosk installer started: $(date --iso-8601=seconds) ====="
+    echo "Log file: $LOG_FILE"
     return 0
   fi
 
