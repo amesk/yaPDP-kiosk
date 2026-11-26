@@ -11,8 +11,11 @@ data = json.loads(manifest_path.read_text())
 if data.get("version") != 1 or not isinstance(data.get("files"), dict):
     raise SystemExit("Unsupported or corrupt original-state manifest; refusing restore.")
 
-# Validate every required backup before touching the live system.
+# Validate every required backup and destination before touching the live system.
 for raw, meta in data["files"].items():
+    target = Path(raw)
+    if target.exists() and not (target.is_file() or target.is_symlink()):
+        raise SystemExit(f"Refusing to replace unexpected non-file path: {target}")
     if meta.get("kind") == "file" and not (STATE / "files" / raw.lstrip("/")).is_file():
         raise SystemExit(f"Backup file missing for {raw}; refusing partial restore.")
     if meta.get("kind") not in ("file", "symlink", "absent"):
@@ -36,12 +39,16 @@ for raw, meta in data["files"].items():
         os.chmod(target, meta["mode"])
 
 # Remove only directories created by the installer, and only when empty.
-for raw, existed in data.get("directories", {}).items():
-    if not existed:
+for raw, metadata in data.get("directories", {}).items():
+    path = Path(raw)
+    if not metadata.get("exists", False):
         try:
-            Path(raw).rmdir()
+            path.rmdir()
         except OSError:
             pass
+    elif path.is_dir():
+        os.chown(path, metadata["uid"], metadata["gid"])
+        os.chmod(path, metadata["mode"])
 
 # The dedicated unprivileged account and its home are intentionally retained.
 # Removing a currently logged-in account during rollback is unsafe; GDM's
