@@ -6,6 +6,7 @@ from pathlib import Path
 STATE = Path("/var/lib/yapdp-kiosk/original-state")
 USER = sys.argv[1]
 HOME = Path(sys.argv[2])
+KIOSK_DIR = Path(sys.argv[3])
 if STATE.exists():
     manifest = STATE / "manifest.json"
     if not manifest.is_file():
@@ -22,17 +23,17 @@ paths = [
  "/etc/grub.d/20_linux_xen", "/etc/grub.d/20_memtest86+", "/etc/grub.d/30-os-prober",
  "/etc/grub.d/30_os-prober", "/etc/grub.d/30-uefi-firmware", "/etc/grub.d/30_uefi-firmware",
  "/etc/grub.d/40_custom", "/etc/grub.d/41_custom", "/etc/gdm3/custom.conf",
- "/etc/update-manager/release-upgrades", "/etc/nginx/sites-available/yapdp-kiosk",
+ "/etc/update-manager/release-upgrades", "/etc/update-manager/release-upgrades.yapdp-kiosk.bak", "/etc/nginx/sites-available/yapdp-kiosk",
  "/etc/nginx/sites-enabled/yapdp-kiosk", "/etc/xdg/autostart/yapdp-kiosk.desktop",
  "/etc/yapdp-kiosk/boot-mode.json", "/root/yapdp-kiosk-grub-password.txt", "/etc/systemd/system/yapdp-kiosk-guard.service",
  "/etc/systemd/system/gdm3.service.d/10-yapdp-boot-mode.conf",
  "/etc/systemd/system/getty@tty3.service.d/10-yapdp-service-mode.conf",
- "/etc/systemd/system/logind.conf.d/90-yapdp-kiosk.conf",
+ "/etc/systemd/logind.conf.d/90-yapdp-kiosk.conf",
  "/etc/systemd/system/ctrl-alt-del.target", "/etc/sysctl.d/90-yapdp-kiosk.conf",
  "/etc/modules-load.d/yapdp-kiosk.conf", "/etc/sudoers.d/yapdp-kiosk-vt-lock",
  "/usr/local/lib/yapdp-kiosk/kiosk-guard.py",
  "/usr/local/lib/yapdp-kiosk/configure-gdm-boot-mode.py",
- "/usr/local/sbin/yapdp-vt-switch-lock",
+ "/usr/local/sbin/yapdp-vt-switch-lock", "/usr/local/sbin/activate-yapdp-kiosk", "/usr/local/sbin/deactivate-yapdp-kiosk", str(KIOSK_DIR / "config.js"),
  str(HOME / ".local/bin/gnome-kiosk-script"),
  str(HOME / ".config/gnome-initial-setup-done"),
  str(HOME / ".config/dconf/user"),
