@@ -40,7 +40,7 @@ paths = [
  str(HOME / ".config/autostart/yapdp-kiosk.desktop"),
  f"/var/lib/AccountsService/users/{USER}",
 ]
-directories = ["/etc/yapdp-kiosk", "/etc/systemd/system/gdm3.service.d", "/etc/systemd/system/getty@tty3.service.d", "/etc/systemd/logind.conf.d", "/etc/sysctl.d", "/etc/modules-load.d", "/usr/local/lib/yapdp-kiosk", "/var/lib/AccountsService/users"]
+directories = ["/etc/yapdp-kiosk", "/etc/systemd/system/gdm3.service.d", "/etc/systemd/system/getty@tty3.service.d", "/etc/systemd/logind.conf.d", "/etc/sysctl.d", "/etc/modules-load.d", "/usr/local/lib/yapdp-kiosk", "/var/lib/AccountsService/users", str(HOME / ".config"), str(HOME / ".local"), str(HOME / ".local/bin"), str(HOME / ".config/dconf"), str(HOME / ".config/autostart")]
 directory_state = {}
 for raw in directories:
     path = Path(raw)
