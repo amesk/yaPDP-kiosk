@@ -12,7 +12,6 @@ from pathlib import Path
 CONFIG = Path("/etc/yapdp-kiosk/boot-mode.json")
 GDM_CONFIG = Path("/etc/gdm3/custom.conf")
 SERVICE_FLAG = "yapdp.service_mode=1"
-GDM_KEYS = ("AutomaticLoginEnable", "AutomaticLogin", "TimedLoginEnable")
 
 
 def update_daemon_section(path: Path, settings: dict[str, str]) -> None:
