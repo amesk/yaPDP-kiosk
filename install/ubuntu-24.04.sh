@@ -571,20 +571,146 @@ if ! command -v grub-mkpasswd-pbkdf2 >/dev/null 2>&1 ||
   exit 1
 fi
 GRUB_PASSWORD_FILE="/root/yapdp-kiosk-grub-password.txt"
-if [[ ! -s "$GRUB_PASSWORD_FILE" ]]; then
-  python3 - "$GRUB_PASSWORD_FILE" <<'PY'
-import os, secrets, sys
-from pathlib import Path
-password = "".join(secrets.choice("0123456789") for _ in range(24))
-path = Path(sys.argv[1])
-path.write_text(password + "\n", encoding="ascii")
-os.chown(path, 0, 0)
-os.chmod(path, 0o600)
-PY
+GRUB_PASSWORD_PATTERN='^[BCDFGHJKLMNPRSTVWZ][AEUY][BCDFGHJKLMNPRSTVWZ][AEUY][BCDFGHJKLMNPRSTVWZ][234679][BCDFGHJKLMNPRSTVWZ][234679]
+GRUB_PASSWORD_HASH="$(printf '%s\n' "$GRUB_HASH_OUTPUT" | grep -oE 'grub\.pbkdf2\.sha512\.[0-9]+\.[A-Fa-f0-9]+\.[A-Fa-f0-9]+' | tail -n 1)"
+if [[ -z "$GRUB_PASSWORD_HASH" ]]; then
+  echo "Could not generate the GRUB PBKDF2 password hash." >&2
+  exit 1
 fi
-GRUB_PASSWORD="$(cat "$GRUB_PASSWORD_FILE")"
-if [[ ! "$GRUB_PASSWORD" =~ ^[A-Za-z0-9]{24}$ ]]; then
-  echo "The saved GRUB password has an invalid format: $GRUB_PASSWORD_FILE" >&2
+GRUB_AUTH_SCRIPT="/etc/grub.d/08_yapdp_kiosk_auth"
+cat > "$GRUB_AUTH_SCRIPT" <<AUTH
+#!/bin/sh
+cat <<'YAPDP_GRUB_AUTH'
+set superusers="kiosk-admin"
+password_pbkdf2 kiosk-admin $GRUB_PASSWORD_HASH
+YAPDP_GRUB_AUTH
+AUTH
+chown root:root "$GRUB_AUTH_SCRIPT"
+chmod 0755 "$GRUB_AUTH_SCRIPT"
+
+install -o root -g root -m 0755 "$KIOSK_DIR/scripts/grub/01_yapdp_disable_stock" /etc/grub.d/01_yapdp_disable_stock
+install -o root -g root -m 0755 "$KIOSK_DIR/scripts/grub/09_yapdp_kiosk" /etc/grub.d/09_yapdp_kiosk
+
+# Suppress Ubuntu's generic entries so the visitor/staff boot menu has exactly
+# the two supported choices. Keep the scripts on disk for package ownership
+# and recovery; only their executable bits are disabled.
+for script in 10_linux 10_linux_zfs 20_linux_xen 20_memtest86+ 30_os-prober 30_uefi-firmware 40_custom 41_custom; do
+  if [[ -f "/etc/grub.d/$script" ]]; then
+    chmod a-x "/etc/grub.d/$script"
+  fi
+done
+
+python3 - /etc/default/grub <<'PY'
+from pathlib import Path
+import re, sys
+path = Path(sys.argv[1])
+lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+settings = {
+    "GRUB_DEFAULT": "yapdp-kiosk",
+    "GRUB_TIMEOUT_STYLE": "menu",
+    "GRUB_TIMEOUT": "5",
+    "GRUB_DISABLE_OS_PROBER": "true",
+    "GRUB_DISABLE_RECOVERY": "true",
+    "GRUB_SAVEDEFAULT": "false",
+}
+seen, output = set(), []
+for line in lines:
+    match = re.match(r"^\s*#?\s*(GRUB_DEFAULT|GRUB_TIMEOUT_STYLE|GRUB_TIMEOUT|GRUB_DISABLE_OS_PROBER|GRUB_DISABLE_RECOVERY|GRUB_SAVEDEFAULT)\s*=", line)
+    if match:
+        key = match.group(1)
+        if key not in seen:
+            output.append(f"{key}={settings[key]}")
+            seen.add(key)
+        continue
+    output.append(line)
+for key, value in settings.items():
+    if key not in seen:
+        output.append(f"{key}={value}")
+path.write_text("\n".join(output) + "\n", encoding="utf-8")
+PY
+
+systemctl daemon-reload
+systemctl enable yapdp-kiosk-guard.service getty@tty3.service
+update-grub
+GRUB_MENU_COUNT="$(grep -c '^menuentry ' /boot/grub/grub.cfg || true)"
+if [[ "$GRUB_MENU_COUNT" != "2" ]]; then
+  echo "Expected exactly two GRUB menu entries, found $GRUB_MENU_COUNT." >&2
+  echo "Inspect /boot/grub/grub.cfg and /etc/grub.d before rebooting." >&2
+  exit 1
+fi
+if ! grub-script-check /boot/grub/grub.cfg; then
+  echo "Generated GRUB configuration failed grub-script-check." >&2
+  exit 1
+fi
+
+# Publish a newly generated password only after the new GRUB configuration
+# has been generated and validated, keeping the saved credential in sync.
+if [[ -n "$GRUB_PASSWORD_TMP" ]]; then
+  mv -f -- "$GRUB_PASSWORD_TMP" "$GRUB_PASSWORD_FILE"
+  chown root:root "$GRUB_PASSWORD_FILE"
+  chmod 0600 "$GRUB_PASSWORD_FILE"
+fi
+
+KIOSK_SYSCTL_DROPIN="/etc/sysctl.d/90-yapdp-kiosk.conf"
+cat > "$KIOSK_SYSCTL_DROPIN" <<'SYSCTL'
+# Managed by the yaPDP kiosk installer: no Magic SysRq on a public exhibit.
+# Undo at runtime with: sudo sysctl kernel.sysrq=1
+kernel.sysrq = 0
+SYSCTL
+sysctl -q -p "$KIOSK_SYSCTL_DROPIN"
+
+if ! systemctl mask ctrl-alt-del.target >/dev/null 2>&1; then
+  echo "Warning: could not mask ctrl-alt-del.target; Ctrl+Alt+Del may reboot the exhibit." >&2
+fi
+
+yapdp_phase 95 "Enabling the local web server and finalizing setup..."
+
+systemctl enable --now nginx
+systemctl reload nginx
+systemctl restart yapdp-kiosk-guard.service
+
+echo
+echo "yaPDP kiosk nginx site installed."
+echo "Kiosk account: $KIOSK_USER"
+echo "GNOME Kiosk Wayland session selected for GDM automatic login."
+echo "GDM auto-login configured for normal kiosk boots; service boots use the standard greeter."
+echo "Keyboard filter: active in kiosk mode; F1-F12 are suppressed."
+echo "GRUB menu: Load yaPDP-kiosk / Enter service mode (password protected)."
+echo "GRUB username: kiosk-admin"
+echo "GRUB password file: /root/yapdp-kiosk-grub-password.txt"
+echo "Kiosk URL: http://127.0.0.1:8080/"
+echo "yaPDP URL: http://127.0.0.1:8080/yapdp/pdp11.html"
+if ! command -v google-chrome-stable >/dev/null 2>&1 &&
+   ! command -v google-chrome >/dev/null 2>&1; then
+  echo "Google Chrome is not installed. Run instant-setup.sh to install it."
+fi
+echo "The kiosk account is not an administrator; use a separate admin account for maintenance."
+echo "Detailed installation log: ${LOG_FILE:-$YAPDP_INSTALL_LOG}"
+yapdp_phase 100 "Kiosk installation completed."
+
+# Show the private GRUB password only after all installation output.
+bash "$KIOSK_DIR/scripts/show-grub-password.sh"
+
+GRUB_PASSWORD_TMP=""
+SAVED_GRUB_PASSWORD=""
+if [[ -s "$GRUB_PASSWORD_FILE" ]]; then
+  SAVED_GRUB_PASSWORD="$(cat "$GRUB_PASSWORD_FILE")"
+fi
+
+# Reuse a current-format password on reinstall. Older 24-digit passwords are
+# rotated once to the shorter pronounceable format.
+if [[ "$SAVED_GRUB_PASSWORD" =~ $GRUB_PASSWORD_PATTERN ]]; then
+  GRUB_PASSWORD="$SAVED_GRUB_PASSWORD"
+else
+  GRUB_PASSWORD_TMP="$(mktemp /root/.yapdp-kiosk-grub-password.XXXXXX)"
+  python3 "$KIOSK_DIR/scripts/generate-grub-password.py" > "$GRUB_PASSWORD_TMP"
+  chown root:root "$GRUB_PASSWORD_TMP"
+  chmod 0600 "$GRUB_PASSWORD_TMP"
+  GRUB_PASSWORD="$(cat "$GRUB_PASSWORD_TMP")"
+fi
+if [[ ! "$GRUB_PASSWORD" =~ $GRUB_PASSWORD_PATTERN ]]; then
+  echo "The generated GRUB password has an invalid format." >&2
+  [[ -n "$GRUB_PASSWORD_TMP" ]] && rm -f "$GRUB_PASSWORD_TMP"
   exit 1
 fi
 GRUB_HASH_OUTPUT="$(printf '%s\n%s\n' "$GRUB_PASSWORD" "$GRUB_PASSWORD" | grub-mkpasswd-pbkdf2 2>/dev/null)"
