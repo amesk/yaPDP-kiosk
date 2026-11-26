@@ -33,7 +33,7 @@ paths = [
  "/etc/modules-load.d/yapdp-kiosk.conf", "/etc/sudoers.d/yapdp-kiosk-vt-lock",
  "/usr/local/lib/yapdp-kiosk/kiosk-guard.py",
  "/usr/local/lib/yapdp-kiosk/configure-gdm-boot-mode.py",
- "/usr/local/sbin/yapdp-vt-switch-lock", "/usr/local/sbin/activate-yapdp-kiosk", "/usr/local/sbin/deactivate-yapdp-kiosk", str(KIOSK_DIR / "config.js"),
+ "/usr/local/sbin/yapdp-vt-switch-lock", str(KIOSK_DIR / "config.js"),
  str(HOME / ".local/bin/gnome-kiosk-script"),
  str(HOME / ".config/gnome-initial-setup-done"),
  str(HOME / ".config/dconf/user"),
