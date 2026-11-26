@@ -127,6 +127,15 @@ exec > >(tee -a "$LOG_FILE" >/dev/tty) 2>&1
 echo "===== yaPDP kiosk bootstrap started: $(date --iso-8601=seconds) ====="
 echo "Log file: $LOG_FILE"
 
+# Run dialog without allowing installer output to remain visible behind it.
+# Preserve dialog's stdout (notably --stdout form/menu results) and exit status.
+yapdp_dialog() {
+  local status=0
+  dialog "$@" || status=$?
+  clear > /dev/tty 2>&1 || printf '\\033[H\\033[2J\\033[3J' > /dev/tty 2>/dev/null || true
+  return "$status"
+}
+
 STAGE_DIR=""
 
 cleanup() {
@@ -138,7 +147,7 @@ cleanup() {
 
     if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]] \
        && command -v dialog >/dev/null 2>&1; then
-      dialog --title "yaPDP Museum Kiosk Setup" --msgbox \
+      yapdp_dialog --title "yaPDP Museum Kiosk Setup" --msgbox \
         "Installation was interrupted.\\n\\nNo further installation steps will be run.\\n\\nThe detailed log is saved at:\\n$LOG_FILE" \
         10 78 </dev/tty >/dev/tty 2>&1 || true
       clear >/dev/tty 2>&1 || printf '\\033[H\\033[2J\\033[3J' > /dev/tty 2>/dev/null || true
@@ -227,7 +236,7 @@ download_chrome() {
   return "$status"
 }
 
-trap 'status=$?; line=$LINENO; command=$BASH_COMMAND; echo "ERROR: exit $status at line $line: $command"; echo "Installation log: $LOG_FILE"; if [[ -r /dev/tty && -w /dev/tty ]] && command -v dialog >/dev/null 2>&1; then dialog --title "yaPDP Kiosk Setup — Error" --msgbox "Installation failed (exit code $status).\\n\\nDetailed log:\\n$LOG_FILE" 10 78 </dev/tty >/dev/tty 2>&1 || true; else echo "Installation failed. Log: $LOG_FILE" >&2; fi' ERR
+trap 'status=$?; line=$LINENO; command=$BASH_COMMAND; echo "ERROR: exit $status at line $line: $command"; echo "Installation log: $LOG_FILE"; if [[ -r /dev/tty && -w /dev/tty ]] && command -v dialog >/dev/null 2>&1; then yapdp_dialog --title "yaPDP Kiosk Setup — Error" --msgbox "Installation failed (exit code $status).\\n\\nDetailed log:\\n$LOG_FILE" 10 78 </dev/tty >/dev/tty 2>&1 || true; else echo "Installation failed. Log: $LOG_FILE" >&2; fi' ERR
 
 if [[ ! -r /etc/os-release ]]; then
   echo "Cannot identify the operating system." >&2
@@ -284,7 +293,7 @@ fi
 
 show_welcome() {
   [[ "${NONINTERACTIVE:-0}" == "1" || ! -r /dev/tty || ! -w /dev/tty ]] && return 0
-  dialog --title "yaPDP Museum Kiosk Setup" --no-collapse --msgbox \
+  yapdp_dialog --title "yaPDP Museum Kiosk Setup" --no-collapse --msgbox \
     "This installer will prepare this Ubuntu 24.04 computer as a dedicated, full-screen museum exhibit.\n\nIt will configure:\n  • Google Chrome and the GNOME Kiosk session\n  • yaPDP and the kiosk presentation files\n  • A local web server and automatic kiosk login\n\nExisting files under /opt/yapdp-exhibit will not be overwritten.\n\nDetailed installation output is saved to:\n$LOG_FILE\n\nSelect OK to configure the installation, or Cancel to abort." \
     20 78 </dev/tty >/dev/tty 2>&1
 }
@@ -296,7 +305,7 @@ show_welcome
 if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]]; then
   edit_repositories() {
     local values status
-    if values="$(dialog --stdout --title "Setup Wizard — 1/3: Repositories" \
+    if values="$(yapdp_dialog --stdout --title "Setup Wizard — 1/3: Repositories" \
       --extra-button --extra-label "Back" \
       --form "Choose the repository locations and exact revisions to install.\nYou can return to this menu and revise any section before installation." \
       19 82 8 \
@@ -324,7 +333,7 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]]; then
 
   edit_visitor_experience() {
     local values status
-    if values="$(dialog --stdout --title "Setup Wizard — 2/3: Visitor experience" \
+    if values="$(yapdp_dialog --stdout --title "Setup Wizard — 2/3: Visitor experience" \
       --extra-button --extra-label "Back" \
       --form "Configure when the exhibit returns to its presentation screen." \
       14 82 5 \
@@ -348,7 +357,7 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]]; then
 
   edit_boot_appearance() {
     local status
-    if dialog --title "Setup Wizard — 3/3: Boot appearance" --yesno \
+    if yapdp_dialog --title "Setup Wizard — 3/3: Boot appearance" --yesno \
       "Install the yaPDP PDP-11/70 Plymouth boot splash?\n\nThis changes the system boot theme and rebuilds initramfs.\nYou can also install it later from plymouth/install.sh." \
       12 78 </dev/tty >/dev/tty 2>&1; then
       INSTALL_PLYMOUTH=1
@@ -365,7 +374,7 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]]; then
   }
 
   while true; do
-    if choice="$(dialog --stdout --title "yaPDP Museum Kiosk Setup — Configuration Wizard" \
+    if choice="$(yapdp_dialog --stdout --title "yaPDP Museum Kiosk Setup — Configuration Wizard" \
       --menu "Select a section to configure. You can revisit any section before starting the installation." \
       17 82 6 \
       "repositories" "Repository URLs and pinned revisions" \
@@ -385,7 +394,7 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]]; then
           ;;
         review)
           review_text="yaPDP repository:\n$YAPDP_REPO_URL\nREF: $YAPDP_REF\n\nyaPDP-kiosk repository:\n$KIOSK_REPO_URL\nREF: $KIOSK_REF\n\nInactivity timeout: $IDLE_TIMEOUT seconds\nReturn URL: $IDLE_REDIRECT\nPlymouth boot splash: $([[ "$INSTALL_PLYMOUTH" == "1" ]] && echo "Yes" || echo "No")\n\nStart installation with these settings?"
-          if dialog --title "Setup Wizard — Review" --yesno "$review_text" 22 82 </dev/tty >/dev/tty 2>&1; then
+          if yapdp_dialog --title "Setup Wizard — Review" --yesno "$review_text" 22 82 </dev/tty >/dev/tty 2>&1; then
             break
           else
             status=$?
