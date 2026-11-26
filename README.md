@@ -142,6 +142,37 @@ byte-level estimate of apt/dpkg work.
 Use a normal yaPDP checkout/release. No FS Bundle, generated resource archive,
 Node.js runtime, or changes to yaPDP are required for this deployment.
 
+## Reversible kiosk operation
+
+The Ubuntu installer captures the machine's pre-install configuration once in
+`/var/lib/yapdp-kiosk/original-state/` before it changes system settings. The
+snapshot includes the affected GRUB generators and defaults, GDM and
+AccountsService configuration, nginx site/link, systemd drop-ins, sysctl and
+logind settings, sudoers rule, relevant user files, and the original enabled /
+active state of affected services. Re-running the installer never overwrites
+that first snapshot.
+
+After installation, the following root-only commands are available both in the
+repository and under `/usr/local/sbin/`:
+
+```bash
+sudo activate-yapdp-kiosk
+sudo deactivate-yapdp-kiosk
+```
+
+The repository equivalents are `sudo bash ./activate-kiosk.sh` and
+`sudo bash ./deactivate-kiosk.sh`. Activation reapplies the kiosk installer
+without replacing the original snapshot. Deactivation stops kiosk components,
+restores the captured configuration and service states, and regenerates GRUB.
+It does not remove repositories, disk images, saved states, the kiosk user's
+home directory, or installed packages. It does not reboot automatically.
+
+Deactivation requires a valid original-state snapshot and refuses to guess if
+the snapshot or any required backup file is missing. Keep the repository or
+the installed recovery helper available until deactivation is complete. This
+is a configuration rollback from a running Ubuntu system; it is not a bootloader
+or disk-recovery tool for a machine that cannot start Ubuntu.
+
 ## Manual install / reconfiguration
 
 If both repositories are already placed side by side in the layout above, run:
