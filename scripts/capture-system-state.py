@@ -39,7 +39,7 @@ paths = [
  str(HOME / ".config/autostart/yapdp-kiosk.desktop"),
  f"/var/lib/AccountsService/users/{USER}",
 ]
-services = ["nginx.service", "gdm3.service", "yapdp-kiosk-guard.service", "getty@tty3.service"]
+directories = ["/etc/yapdp-kiosk", "/etc/systemd/system/gdm3.service.d", "/etc/systemd/system/getty@tty3.service.d", "/etc/systemd/system/logind.conf.d", "/etc/sysctl.d", "/etc/modules-load.d", "/usr/local/lib/yapdp-kiosk", "/var/lib/AccountsService/users"]\ndirectory_state = {p: Path(p).is_dir() for p in directories}\nservices = ["nginx.service", "gdm3.service", "yapdp-kiosk-guard.service", "getty@tty3.service"]
 account_existed = subprocess.run(["id", USER], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
 STATE.mkdir(parents=True, mode=0o700)
 files = {}
@@ -65,7 +65,7 @@ for service in services:
     enabled = subprocess.run(["systemctl","is-enabled",service],capture_output=True,text=True).stdout.strip()
     active = subprocess.run(["systemctl","is-active",service],capture_output=True,text=True).stdout.strip()
     service_state[service] = {"enabled":enabled or "unknown", "active":active or "unknown"}
-manifest = {"version":1,"kiosk_user":USER,"kiosk_home":str(HOME),"account_existed":account_existed,"files":files,"services":service_state}
+manifest = {"version":1,"kiosk_user":USER,"kiosk_home":str(HOME),"account_existed":account_existed,"files":files,"directories":directory_state,"services":service_state}
 tmp = STATE / "manifest.json.tmp"
 tmp.write_text(json.dumps(manifest,indent=2)+"\n")
 os.chmod(tmp,0o600)
