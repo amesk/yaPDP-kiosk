@@ -539,6 +539,8 @@ fi
 # command line marks only this one boot as service mode; the next boot naturally
 # returns to kiosk auto-login without changing persistent GRUB defaults.
 install -d -o root -g root -m 0700 /etc/yapdp-kiosk
+# Remove the obsolete per-keyboard service trigger from earlier draft installs.
+rm -f /etc/yapdp-kiosk/guard.conf /root/yapdp-kiosk-service-sequence.txt
 python3 - "$KIOSK_USER" /etc/yapdp-kiosk/boot-mode.json <<'PY'
 import json, os, sys
 from pathlib import Path
