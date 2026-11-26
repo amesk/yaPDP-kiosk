@@ -39,7 +39,7 @@ for raw, meta in data["files"].items():
         os.chmod(target, meta["mode"])
 
 # Remove only directories created by the installer, and only when empty.
-for raw, metadata in data.get("directories", {}).items():
+for raw, metadata in sorted(data.get("directories", {}).items(), key=lambda item: item[0].count("/"), reverse=True):
     path = Path(raw)
     if not metadata.get("exists", False):
         try:
