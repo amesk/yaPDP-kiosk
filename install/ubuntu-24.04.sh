@@ -571,7 +571,30 @@ if ! command -v grub-mkpasswd-pbkdf2 >/dev/null 2>&1 ||
   exit 1
 fi
 GRUB_PASSWORD_FILE="/root/yapdp-kiosk-grub-password.txt"
-GRUB_PASSWORD_PATTERN='^[BCDFGHJKLMNPRSTVWZ][AEUY][BCDFGHJKLMNPRSTVWZ][AEUY][BCDFGHJKLMNPRSTVWZ][234679][BCDFGHJKLMNPRSTVWZ][234679]
+GRUB_PASSWORD_PATTERN='^[BCDFGHJKLMNPRSTVWZ][AEUY][BCDFGHJKLMNPRSTVWZ][AEUY][234679][BCDFGHJKLMNPRSTVWZ][AEUY][BCDFGHJKLMNPRSTVWZ]$'
+GRUB_PASSWORD_TMP=""
+SAVED_GRUB_PASSWORD=""
+if [[ -s "$GRUB_PASSWORD_FILE" ]]; then
+  SAVED_GRUB_PASSWORD="$(cat "$GRUB_PASSWORD_FILE")"
+fi
+
+# Reuse a current-format password on reinstall. Older 24-digit passwords are
+# rotated once to the shorter pronounceable format.
+if [[ "$SAVED_GRUB_PASSWORD" =~ $GRUB_PASSWORD_PATTERN ]]; then
+  GRUB_PASSWORD="$SAVED_GRUB_PASSWORD"
+else
+  GRUB_PASSWORD_TMP="$(mktemp /root/.yapdp-kiosk-grub-password.XXXXXX)"
+  python3 "$KIOSK_DIR/scripts/generate-grub-password.py" > "$GRUB_PASSWORD_TMP"
+  chown root:root "$GRUB_PASSWORD_TMP"
+  chmod 0600 "$GRUB_PASSWORD_TMP"
+  GRUB_PASSWORD="$(cat "$GRUB_PASSWORD_TMP")"
+fi
+if [[ ! "$GRUB_PASSWORD" =~ $GRUB_PASSWORD_PATTERN ]]; then
+  echo "The generated GRUB password has an invalid format." >&2
+  [[ -n "$GRUB_PASSWORD_TMP" ]] && rm -f "$GRUB_PASSWORD_TMP"
+  exit 1
+fi
+GRUB_HASH_OUTPUT="$(printf '%s\n%s\n' "$GRUB_PASSWORD" "$GRUB_PASSWORD" | grub-mkpasswd-pbkdf2 2>/dev/null)"
 GRUB_PASSWORD_HASH="$(printf '%s\n' "$GRUB_HASH_OUTPUT" | grep -oE 'grub\.pbkdf2\.sha512\.[0-9]+\.[A-Fa-f0-9]+\.[A-Fa-f0-9]+' | tail -n 1)"
 if [[ -z "$GRUB_PASSWORD_HASH" ]]; then
   echo "Could not generate the GRUB PBKDF2 password hash." >&2
