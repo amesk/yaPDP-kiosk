@@ -3,14 +3,16 @@ set -euo pipefail
 PASSWORD_FILE="/root/yapdp-kiosk-grub-password.txt"
 [[ -r "$PASSWORD_FILE" ]] || { echo "GRUB password file is missing: $PASSWORD_FILE" >&2; exit 1; }
 PASSWORD="$(cat "$PASSWORD_FILE")"
-if [[ ! "$PASSWORD" =~ ^[BCDFGHJKLMNPRSTVWZ][AEUY][BCDFGHJKLMNPRSTVWZ][AEUY][BCDFGHJKLMNPRSTVWZ][234679][BCDFGHJKLMNPRSTVWZ][234679]$ ]]; then
+if [[ ! "$PASSWORD" =~ ^[BCDFGHJKLMNPRSTVWZ][AEUY][BCDFGHJKLMNPRSTVWZ][AEUY][234679][BCDFGHJKLMNPRSTVWZ][AEUY][BCDFGHJKLMNPRSTVWZ]$ ]]; then
   echo "The saved GRUB password has an unexpected format: $PASSWORD_FILE" >&2
   exit 1
 fi
 FORMATTED_PASSWORD="${PASSWORD:0:4}-${PASSWORD:4:4}"
 MESSAGE="STAFF ONLY — GRUB SERVICE PASSWORD
 
-$PASSWORD
+$FORMATTED_PASSWORD
+
+Enter the password without the display hyphen.
 
 GRUB username: kiosk-admin
 Use this password for the GRUB entry:
