@@ -40,7 +40,7 @@ paths = [
  str(HOME / ".config/autostart/yapdp-kiosk.desktop"),
  f"/var/lib/AccountsService/users/{USER}",
 ]
-directories = ["/etc/yapdp-kiosk", "/etc/systemd/system/gdm3.service.d", "/etc/systemd/system/getty@tty3.service.d", "/etc/systemd/system/logind.conf.d", "/etc/sysctl.d", "/etc/modules-load.d", "/usr/local/lib/yapdp-kiosk", "/var/lib/AccountsService/users"]
+directories = ["/etc/yapdp-kiosk", "/etc/systemd/system/gdm3.service.d", "/etc/systemd/system/getty@tty3.service.d", "/etc/systemd/logind.conf.d", "/etc/sysctl.d", "/etc/modules-load.d", "/usr/local/lib/yapdp-kiosk", "/var/lib/AccountsService/users"]
 directory_state = {p: Path(p).is_dir() for p in directories}
 services = ["nginx.service", "gdm3.service", "yapdp-kiosk-guard.service", "getty@tty3.service"]
 account_existed = subprocess.run(["id", USER], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
