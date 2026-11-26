@@ -49,7 +49,10 @@ yapdp_run_with_spinner() {
   local pid status frame=0
   local spinner='|/-\'
 
-  ("$@") &
+  # The bootstrap normally mirrors stdout/stderr to the operator terminal.
+  # Override that inherited destination for background package/install commands:
+  # keep their complete output in the log while the spinner owns the terminal.
+  ("$@" >> "$LOG_FILE" 2>&1) &
   pid=$!
 
   while kill -0 "$pid" 2>/dev/null; do
