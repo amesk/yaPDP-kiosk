@@ -127,12 +127,30 @@ exec > >(tee -a "$LOG_FILE" >/dev/tty) 2>&1
 echo "===== yaPDP kiosk bootstrap started: $(date --iso-8601=seconds) ====="
 echo "Log file: $LOG_FILE"
 
+# Restore normal terminal attributes and colours before clearing the screen.
+# dialog may leave its blue background active; clearing without resetting the
+# colour pair simply paints the old background again.
+yapdp_reset_terminal() {
+  local tty="/dev/tty"
+  [[ -w "$tty" ]] || return 0
+
+  {
+    if command -v tput >/dev/null 2>&1; then
+      tput sgr0 2>/dev/null || printf '\033[0m'
+      tput op 2>/dev/null || printf '\033[39;49m'
+      tput clear 2>/dev/null || printf '\033[H\033[2J\033[3J'
+    else
+      printf '\033[0m\033[39;49m\033[H\033[2J\033[3J'
+    fi
+  } > "$tty" 2>/dev/null || true
+}
+
 # Run dialog without allowing installer output to remain visible behind it.
 # Preserve dialog's stdout (notably --stdout form/menu results) and exit status.
 yapdp_dialog() {
   local status=0
   dialog "$@" || status=$?
-  clear > /dev/tty 2>&1 || printf '\\033[H\\033[2J\\033[3J' > /dev/tty 2>/dev/null || true
+  yapdp_reset_terminal
   return "$status"
 }
 
@@ -150,7 +168,7 @@ cleanup() {
       yapdp_dialog --title "yaPDP Museum Kiosk Setup" --msgbox \
         "Installation was interrupted.\\n\\nNo further installation steps will be run.\\n\\nThe detailed log is saved at:\\n$LOG_FILE" \
         10 78 </dev/tty >/dev/tty 2>&1 || true
-      clear >/dev/tty 2>&1 || printf '\\033[H\\033[2J\\033[3J' > /dev/tty 2>/dev/null || true
+      yapdp_reset_terminal
     else
       printf '\\nInstallation interrupted. Log: %s\\n' "$LOG_FILE" > /dev/tty 2>/dev/null || true
     fi
@@ -605,7 +623,7 @@ YAPDP_PROGRESS_BASE=55 YAPDP_PROGRESS_SPAN=40 \
 
 if [[ "$INSTALL_PLYMOUTH" == "1" ]]; then
   # Start the optional Plymouth phase on a clean terminal, not over the progress dialog.
-  clear > /dev/tty 2>&1 || printf '\033[H\033[2J\033[3J' > /dev/tty 2>/dev/null || true
+  yapdp_reset_terminal
   show_phase 97 "Installing the optional Plymouth boot splash..."
   echo
   echo "Installing the optional yaPDP Plymouth boot splash..."
@@ -619,7 +637,7 @@ fi
 
 show_phase 100 "Installation completed."
 # Remove the progress screen before presenting the final operator instructions.
-clear > /dev/tty 2>&1 || printf '\033[H\033[2J\033[3J' > /dev/tty 2>/dev/null || true
+yapdp_reset_terminal
 echo
 echo "Initial setup is complete. Reboot to enter the kiosk account automatically."
 echo "Detailed installation log: $LOG_FILE"
