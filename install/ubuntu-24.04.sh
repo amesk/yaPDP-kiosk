@@ -665,7 +665,7 @@ yapdp_phase 95 "Enabling the local web server and finalizing setup..."
 
 systemctl enable --now nginx
 systemctl reload nginx
-systemctl start yapdp-kiosk-guard.service
+systemctl restart yapdp-kiosk-guard.service
 
 echo
 echo "yaPDP kiosk nginx site installed."
