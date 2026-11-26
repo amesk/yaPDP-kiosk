@@ -513,7 +513,7 @@ LOGIND
 yapdp_run_with_spinner "Installing keyboard event support" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y python3-evdev
 modprobe uinput
 install -d -m 0755 /etc/modules-load.d
-printf 'uinput\\n' > /etc/modules-load.d/yapdp-kiosk.conf
+printf 'uinput\n' > /etc/modules-load.d/yapdp-kiosk.conf
 
 GUARD_DIR="/usr/local/lib/yapdp-kiosk"
 install -d -o root -g root -m 0755 "$GUARD_DIR"
@@ -525,7 +525,7 @@ install -d -m 0755 /etc/systemd/system/gdm3.service.d
 install -o root -g root -m 0644 "$KIOSK_DIR/systemd/gdm3.service.d/10-yapdp-boot-mode.conf" /etc/systemd/system/gdm3.service.d/10-yapdp-boot-mode.conf
 
 KIOSK_SUDOERS="/etc/sudoers.d/yapdp-kiosk-vt-lock"
-printf '%s ALL=(root) NOPASSWD: /usr/local/sbin/yapdp-vt-switch-lock lock\\n' "$KIOSK_USER" > "$KIOSK_SUDOERS"
+printf '%s ALL=(root) NOPASSWD: /usr/local/sbin/yapdp-vt-switch-lock lock\n' "$KIOSK_USER" > "$KIOSK_SUDOERS"
 chmod 0440 "$KIOSK_SUDOERS"
 if ! visudo -cf "$KIOSK_SUDOERS" >/dev/null; then
   rm -f "$KIOSK_SUDOERS"
@@ -541,7 +541,7 @@ python3 - "$KIOSK_USER" /etc/yapdp-kiosk/boot-mode.json <<'PY'
 import json, os, sys
 from pathlib import Path
 target = Path(sys.argv[2])
-target.write_text(json.dumps({"kiosk_user": sys.argv[1]}) + "\\n", encoding="utf-8")
+target.write_text(json.dumps({"kiosk_user": sys.argv[1]}) + "\n", encoding="utf-8")
 os.chown(target, 0, 0)
 os.chmod(target, 0o600)
 PY
@@ -563,7 +563,7 @@ from pathlib import Path
 alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
 password = "".join(secrets.choice(alphabet) for _ in range(24))
 path = Path(sys.argv[1])
-path.write_text(password + "\\n", encoding="ascii")
+path.write_text(password + "\n", encoding="ascii")
 os.chown(path, 0, 0)
 os.chmod(path, 0o600)
 PY
@@ -573,8 +573,8 @@ if [[ ! "$GRUB_PASSWORD" =~ ^[A-Za-z0-9]{24}$ ]]; then
   echo "The saved GRUB password has an invalid format: $GRUB_PASSWORD_FILE" >&2
   exit 1
 fi
-GRUB_HASH_OUTPUT="$(printf '%s\\n%s\\n' "$GRUB_PASSWORD" "$GRUB_PASSWORD" | grub-mkpasswd-pbkdf2 2>/dev/null)"
-GRUB_PASSWORD_HASH="$(printf '%s\\n' "$GRUB_HASH_OUTPUT" | grep -oE 'grub\\.pbkdf2\\.sha512\\.[0-9]+\\.[A-Fa-f0-9]+\\.[A-Fa-f0-9]+' | tail -n 1)"
+GRUB_HASH_OUTPUT="$(printf '%s\n%s\n' "$GRUB_PASSWORD" "$GRUB_PASSWORD" | grub-mkpasswd-pbkdf2 2>/dev/null)"
+GRUB_PASSWORD_HASH="$(printf '%s\n' "$GRUB_HASH_OUTPUT" | grep -oE 'grub\.pbkdf2\.sha512\.[0-9]+\.[A-Fa-f0-9]+\.[A-Fa-f0-9]+' | tail -n 1)"
 if [[ -z "$GRUB_PASSWORD_HASH" ]]; then
   echo "Could not generate the GRUB PBKDF2 password hash." >&2
   exit 1
@@ -616,7 +616,7 @@ settings = {
 }
 seen, output = set(), []
 for line in lines:
-    match = re.match(r"^\\s*#?\\s*(GRUB_DEFAULT|GRUB_TIMEOUT_STYLE|GRUB_TIMEOUT|GRUB_DISABLE_OS_PROBER|GRUB_DISABLE_RECOVERY|GRUB_SAVEDEFAULT)\\s*=", line)
+    match = re.match(r"^\s*#?\s*(GRUB_DEFAULT|GRUB_TIMEOUT_STYLE|GRUB_TIMEOUT|GRUB_DISABLE_OS_PROBER|GRUB_DISABLE_RECOVERY|GRUB_SAVEDEFAULT)\s*=", line)
     if match:
         key = match.group(1)
         if key not in seen:
@@ -627,7 +627,7 @@ for line in lines:
 for key, value in settings.items():
     if key not in seen:
         output.append(f"{key}={value}")
-path.write_text("\\n".join(output) + "\\n", encoding="utf-8")
+path.write_text("\n".join(output) + "\n", encoding="utf-8")
 PY
 
 systemctl daemon-reload
