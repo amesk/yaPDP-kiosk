@@ -171,6 +171,23 @@ run_command() {
   "$@"
 }
 
+# Package-manager output is useful for diagnostics but too noisy for the
+# operator-facing kiosk setup. Keep it in the log and surface details on error.
+run_logged_command() {
+  local message="$1"
+  shift
+  printf '\n==> %s\n' "$message"
+  if "$@" >> "$LOG_FILE" 2>&1; then
+    printf '%s completed.\n' "$message"
+  else
+    local status=$?
+    printf 'ERROR: %s failed (exit %s).\n' "$message" "$status" >&2
+    printf 'Last lines from the installation log:\n' >&2
+    tail -n 25 "$LOG_FILE" >&2 || true
+    return "$status"
+  fi
+}
+
 download_chrome() {
   local output="$1"
   local url="$2"
@@ -434,8 +451,8 @@ if ! command -v google-chrome-stable >/dev/null 2>&1 \
   fi
 
   echo "Google Chrome Stable is not installed; installing the official Google .deb package."
-  run_command "Refreshing Ubuntu package lists" apt-get -o DPkg::Lock::Timeout=300 update
-  run_command "Installing download tools" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y ca-certificates curl
+  run_logged_command "Refreshing Ubuntu package lists" apt-get -o DPkg::Lock::Timeout=300 update
+  run_logged_command "Installing download tools" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y ca-certificates curl
 
   # Keep the download outside the temporary staging directory so an interrupted
   # bootstrap can resume it on the next run instead of downloading from zero.
@@ -463,7 +480,7 @@ if ! command -v google-chrome-stable >/dev/null 2>&1 \
     echo "A valid cached Google Chrome package was found; skipping download."
   fi
 
-  run_command "Installing Google Chrome Stable" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y "$CHROME_DEB"
+  run_logged_command "Installing Google Chrome Stable" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y "$CHROME_DEB"
 fi
 
 CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || true)"
@@ -487,8 +504,8 @@ fi
 show_phase 20 "Google Chrome is ready. Preparing repository download..."
 
 if ! command -v git >/dev/null 2>&1; then
-  run_command "Refreshing Ubuntu package lists" apt-get -o DPkg::Lock::Timeout=300 update
-  run_command "Installing Git" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y git ca-certificates
+  run_logged_command "Refreshing Ubuntu package lists" apt-get -o DPkg::Lock::Timeout=300 update
+  run_logged_command "Installing Git" env DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y git ca-certificates
 fi
 
 fetch_git_with_progress() {
