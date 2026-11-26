@@ -1,18 +1,41 @@
 #!/bin/sh
-# Emit two managed entries. /vmlinuz and /initrd.img track Ubuntu's current kernel.
+# Emit two managed entries using paths relative to the filesystem selected by
+# the GRUB search command. This works whether /boot is a separate filesystem
+# or a directory on the root filesystem.
 set -eu
 set -f
 [ ! -r /etc/default/grub ] || . /etc/default/grub
+
 ROOT_UUID="$(grub-probe --target=fs_uuid /)"
 BOOT_UUID="$(grub-probe --target=fs_uuid /boot)"
 if [ -z "$ROOT_UUID" ] || [ -z "$BOOT_UUID" ]; then
     echo "yaPDP GRUB: could not determine root or /boot filesystem UUID" >&2
     exit 1
 fi
-if [ ! -e /vmlinuz ] || [ ! -e /initrd.img ]; then
-    echo "yaPDP GRUB: expected /vmlinuz and /initrd.img symlinks" >&2
+
+if ! command -v grub-mkrelpath >/dev/null 2>&1; then
+    echo "yaPDP GRUB: grub-mkrelpath is required to resolve kernel paths" >&2
     exit 1
 fi
+
+KERNEL_FILE="$(readlink -f /boot/vmlinuz)"
+INITRD_FILE="$(readlink -f /boot/initrd.img)"
+if [ ! -f "$KERNEL_FILE" ] || [ ! -f "$INITRD_FILE" ]; then
+    echo "yaPDP GRUB: /boot/vmlinuz or /boot/initrd.img does not resolve to a file" >&2
+    exit 1
+fi
+
+# grub-mkrelpath returns paths relative to GRUB's selected filesystem root:
+# /boot/... when /boot shares the root filesystem, /... when it is separate.
+KERNEL_PATH="$(grub-mkrelpath "$KERNEL_FILE")"
+INITRD_PATH="$(grub-mkrelpath "$INITRD_FILE")"
+case "$KERNEL_PATH:$INITRD_PATH" in
+    /*:/*) ;;
+    *)
+        echo "yaPDP GRUB: could not derive absolute GRUB paths for kernel/initrd" >&2
+        exit 1 ;;
+esac
+
 KERNEL_ARGS="${GRUB_CMDLINE_LINUX_DEFAULT:-} ${GRUB_CMDLINE_LINUX:-}"
 for argument in $KERNEL_ARGS; do
     case "$argument" in
@@ -21,16 +44,17 @@ for argument in $KERNEL_ARGS; do
             exit 1 ;;
     esac
 done
+
 cat <<EOF
 menuentry 'Load yaPDP-kiosk' --unrestricted --id yapdp-kiosk {
     search --no-floppy --fs-uuid --set=root $BOOT_UUID
-    linux /vmlinuz root=UUID=$ROOT_UUID ro $KERNEL_ARGS
-    initrd /initrd.img
+    linux $KERNEL_PATH root=UUID=$ROOT_UUID ro $KERNEL_ARGS
+    initrd $INITRD_PATH
 }
 
 menuentry 'Enter service mode' --users kiosk-admin --id yapdp-service {
     search --no-floppy --fs-uuid --set=root $BOOT_UUID
-    linux /vmlinuz root=UUID=$ROOT_UUID ro $KERNEL_ARGS yapdp.service_mode=1 systemd.unit=graphical.target
-    initrd /initrd.img
+    linux $KERNEL_PATH root=UUID=$ROOT_UUID ro $KERNEL_ARGS yapdp.service_mode=1 systemd.unit=graphical.target
+    initrd $INITRD_PATH
 }
 EOF
