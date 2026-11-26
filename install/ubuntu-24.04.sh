@@ -595,7 +595,7 @@ install -o root -g root -m 0755 "$KIOSK_DIR/scripts/grub/09_yapdp_kiosk" /etc/gr
 # Suppress Ubuntu's generic entries so the visitor/staff boot menu has exactly
 # the two supported choices. Keep the scripts on disk for package ownership
 # and recovery; only their executable bits are disabled.
-for script in 10_linux 20_linux_xen 30_os-prober 30_uefi-firmware 40_custom 41_custom; do
+for script in 10_linux 10_linux_zfs 20_linux_xen 20_memtest86+ 30_os-prober 30_uefi-firmware 40_custom 41_custom; do
   if [[ -f "/etc/grub.d/$script" ]]; then
     chmod a-x "/etc/grub.d/$script"
   fi
@@ -631,7 +631,7 @@ path.write_text("\n".join(output) + "\n", encoding="utf-8")
 PY
 
 systemctl daemon-reload
-systemctl enable yapdp-kiosk-guard.service
+systemctl enable yapdp-kiosk-guard.service getty@tty3.service
 update-grub
 GRUB_MENU_COUNT="$(grep -c '^menuentry ' /boot/grub/grub.cfg || true)"
 if [[ "$GRUB_MENU_COUNT" != "2" ]]; then
