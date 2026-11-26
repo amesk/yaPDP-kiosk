@@ -236,21 +236,21 @@ fi
 # museum operator's screen. Only expose diagnostics if preparation fails.
 if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]] &&
    ! command -v dialog >/dev/null 2>&1; then
-  printf '\\nPreparing the setup wizard... please wait.\\n' > /dev/tty
+  printf '\nPreparing the setup wizard... please wait.\n' > /dev/tty
 
   if {
     apt-get -o DPkg::Lock::Timeout=300 update &&
     DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y dialog
   } >> "$LOG_FILE" 2>&1; then
-    printf 'Setup wizard is ready.\\n' > /dev/tty
+    printf 'Setup wizard is ready.\n' > /dev/tty
   else
     {
-      printf '\\nERROR: Could not prepare the setup wizard.\\n'
-      printf 'The installer cannot continue interactively.\\n\\n'
-      printf 'Detailed log: %s\\n\\n' "$LOG_FILE"
-      printf '%s\\n' 'Last lines from the log:'
+      printf '\nERROR: Could not prepare the setup wizard.\n'
+      printf 'The installer cannot continue interactively.\n\n'
+      printf 'Detailed log: %s\n\n' "$LOG_FILE"
+      printf '%s\n' 'Last lines from the log:'
       tail -n 25 "$LOG_FILE" 2>/dev/null || true
-      printf '\\nPress Enter to exit. '
+      printf '\nPress Enter to exit. '
     } > /dev/tty
     IFS= read -r _ < /dev/tty || true
     exit 1
