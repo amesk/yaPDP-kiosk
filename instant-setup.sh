@@ -15,8 +15,8 @@ if [[ "$#" -gt 0 ]]; then
 Usage: bash instant-setup.sh
        wget -O - <url>/instant-setup.sh | bash
 
-The setup wizard uses dialog. Installation phases and command output
-are printed to the terminal and saved to the detailed log.
+The setup wizard uses dialog. Installation progress is shown in the
+terminal; detailed command output is saved to the log.
 USAGE
       exit 0
       ;;
@@ -231,26 +231,26 @@ if ! dpkg-query -W -f='${Status}' gdm3 2>/dev/null | grep -q "install ok install
   exit 1
 fi
 
-# The welcome screen and settings wizard both use dialog. Install it
-# before showing either screen; package-manager output remains in the log.
+# The welcome screen and settings wizard both use dialog. Prepare it
+# quietly: package-manager output belongs in the detailed log, not on the
+# museum operator's screen. Only expose diagnostics if preparation fails.
 if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]] &&
    ! command -v dialog >/dev/null 2>&1; then
-  {
-    printf '\n  yaPDP MUSEUM KIOSK SETUP\n\n'
-    printf '  Preparing the installation wizard...\n\n'
-    printf '  Ubuntu may be completing background updates. The installer\n'
-    printf '  will wait until the package manager is available, then\n'
-    printf '  prepare the setup screens.\n\n'
-    printf '  Please wait; no action is required.\n\n'
-    printf '  Detailed installation log:\n  %s\n' "$LOG_FILE"
-  } > /dev/tty
+  printf '\\nPreparing the setup wizard... please wait.\\n' > /dev/tty
 
-  if ! run_command "Preparing the setup wizard" bash -c 'apt-get -o DPkg::Lock::Timeout=300 update && DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y dialog'; then
+  if {
+    apt-get -o DPkg::Lock::Timeout=300 update &&
+    DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=300 install -y dialog
+  } >> "$LOG_FILE" 2>&1; then
+    printf 'Setup wizard is ready.\\n' > /dev/tty
+  else
     {
-      printf '\n  ERROR: Could not install the dialog interface.\n'
-      printf '  The installer cannot continue interactively.\n\n'
-      printf '  Please inspect the log:\n  %s\n' "$LOG_FILE"
-      printf '\n  Press Enter to exit. '
+      printf '\\nERROR: Could not prepare the setup wizard.\\n'
+      printf 'The installer cannot continue interactively.\\n\\n'
+      printf 'Detailed log: %s\\n\\n' "$LOG_FILE"
+      printf '%s\\n' 'Last lines from the log:'
+      tail -n 25 "$LOG_FILE" 2>/dev/null || true
+      printf '\\nPress Enter to exit. '
     } > /dev/tty
     IFS= read -r _ < /dev/tty || true
     exit 1
