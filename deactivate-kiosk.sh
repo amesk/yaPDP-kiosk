@@ -18,7 +18,6 @@ systemctl stop nginx.service 2>/dev/null || true
 # Restore all captured files, including the original nginx site symlink and GRUB generators.
 python3 "$RESTORE"
 systemctl daemon-reload
-systemctl unmask ctrl-alt-del.target >/dev/null 2>&1 || true
 sysctl --system >/dev/null 2>&1 || true
 if command -v update-grub >/dev/null 2>&1; then update-grub; fi
 # Restore the services' pre-install enable/active state.
@@ -32,7 +31,7 @@ for name,state in data["services"].items():
     elif enabled in ("disabled","masked","static","indirect","generated","transient","not-found"):
         if enabled == "masked": subprocess.run(["systemctl","mask",name],check=False)
         elif enabled in ("disabled","not-found"): subprocess.run(["systemctl","disable",name],check=False)
-    if state["active"] == "active": subprocess.run(["systemctl","start",name],check=False)
+    if state["active"] == "active":\n        subprocess.run(["systemctl","restart" if name == "gdm3.service" else "start",name],check=False)
     elif state["active"] in ("inactive","failed"): subprocess.run(["systemctl","stop",name],check=False)
 PY
 echo
