@@ -12,7 +12,7 @@ if STATE.exists():
     if not manifest.is_file():
         raise SystemExit(f"Refusing to overwrite incomplete state backup: {STATE}")
     data = json.loads(manifest.read_text())
-    if data.get("kiosk_user") != USER or data.get("kiosk_home") != str(HOME):
+    if data.get("kiosk_user") != USER or data.get("kiosk_home") != str(HOME) or data.get("kiosk_dir") != str(KIOSK_DIR):
         raise SystemExit("Existing original-state backup belongs to a different kiosk account.")
     print(f"Original system state already captured: {STATE}")
     raise SystemExit(0)
@@ -75,7 +75,7 @@ for service in services:
     enabled = subprocess.run(["systemctl","is-enabled",service],capture_output=True,text=True).stdout.strip()
     active = subprocess.run(["systemctl","is-active",service],capture_output=True,text=True).stdout.strip()
     service_state[service] = {"enabled":enabled or "unknown", "active":active or "unknown"}
-manifest = {"version":1,"kiosk_user":USER,"kiosk_home":str(HOME),"account_existed":account_existed,"files":files,"directories":directory_state,"services":service_state}
+manifest = {"version":1,"kiosk_user":USER,"kiosk_home":str(HOME),"kiosk_dir":str(KIOSK_DIR),"account_existed":account_existed,"files":files,"directories":directory_state,"services":service_state}
 tmp = STATE / "manifest.json.tmp"
 tmp.write_text(json.dumps(manifest,indent=2)+"\n")
 os.chmod(tmp,0o600)
