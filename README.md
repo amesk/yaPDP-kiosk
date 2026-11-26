@@ -286,44 +286,51 @@ curl -I http://127.0.0.1:8080/yapdp/pdp11.html
 - The Windows launcher is intentionally not maintained; Ubuntu 24.04 is the
   supported deployment target.
 
-### Physical-access hardening and local service mode
+### GRUB-protected local service mode
 
-The kiosk uses two cooperating components:
+The GRUB menu contains exactly two managed entries:
 
-- GNOME Kiosk runs the visitor application in its dedicated Wayland session.
-  Mutter shortcuts are cleared where installed schemas expose them, but this
-  is supplementary hardening, not the VT security boundary.
-- `yapdp-kiosk-guard.service` is a root-owned Python process using Linux
-  `evdev` and `uinput`. It grabs each physical keyboard and republishes its
-  events through a virtual keyboard, dropping F1-F12 before they reach GNOME or
-  Chrome. The guard still sees physical events first, so the service sequence
-  remains available. It starts before GDM and monitors hotplugged keyboards.
-  The kiosk launcher locks Linux VT switching only after the graphical session
-  is running.
+- **Load yaPDP-kiosk** — unrestricted and selected by default.
+- **Enter service mode** — requires the separate GRUB password.
 
-The local service sequence is:
+The menu is displayed for five seconds. If no selection is made, the kiosk
+starts automatically. The service entry boots the same Ubuntu installation
+with `yapdp.service_mode=1`; it does not change the persistent GRUB default
+and does not set a service mode for the next boot.
 
-1. Hold **Right Ctrl + Right Alt + Right Shift** together for three seconds.
-2. Release all three modifiers.
-3. Within five seconds, press the three function keys shown in the root-only
-   service-sequence file. The exact sequence is randomly generated per
-   installation and is not stored in the public repository. At the end of an
-   interactive installation, a staff-only hand-off screen displays it and asks
-   the operator to record it. The root-only file is also available later with:
+Before GDM starts, a small boot-mode hook reads the kernel command line:
 
-   `sudo cat /root/yapdp-kiosk-service-sequence.txt`.
+- On a normal boot it enables GDM automatic login to the dedicated GNOME Kiosk
+  account.
+- On a service-mode boot it disables automatic login, leaving the standard
+  Ubuntu GDM greeter. Staff sign in with their separate Ubuntu administrator
+  account and receive the normal Ubuntu desktop.
+- On the next reboot the service-mode kernel parameter is absent, so GDM
+  restores kiosk automatic login. No manual mode reset is required.
 
-The guard starts a login prompt on tty3, stops the graphical display manager,
-unlocks VT switching, and switches to tty3. The administrator signs in using
-the separate local Ubuntu account. The sequence is a convenience trigger, not
-authentication; the administrator password remains the security boundary.
+The service boot does not start the F1-F12 keyboard filter or the kiosk-session
+VT lock. The public kiosk session starts the filter and locks VT switching
+after GNOME Kiosk has acquired its graphical VT. F1-F12 are suppressed before
+they reach Chrome; ordinary keys are forwarded through a uinput keyboard.
 
-After maintenance, run `sudo reboot`. The marker is stored under `/run`, so it
-disappears at reboot. GDM then starts the kiosk session again and the launcher
-re-applies the VT lock before Chrome starts.
+The installer generates a separate random GRUB password. It is shown at the
+end of interactive installation and stored root-only at
+`/root/yapdp-kiosk-grub-password.txt`. Only its PBKDF2 hash is written into
+the GRUB configuration. Retrieve the password locally with:
 
-The guard requires `python3-evdev` and the Linux `uinput` kernel module.
-It is supervised by systemd and logs to journald:
+```bash
+sudo cat /root/yapdp-kiosk-grub-password.txt
+```
+
+GRUB authentication protects the service entry, editing menu entries, and the
+GRUB command line. The normal kiosk entry remains available without a
+password. The installer suppresses stock Ubuntu kernel/recovery and firmware
+menu generators so the visible menu contains only the two managed entries.
+The current kernel is loaded through Ubuntu's `/vmlinuz` and `/initrd.img`
+symlinks, which are updated when kernel packages change.
+
+The keyboard filter requires `python3-evdev` and the Linux `uinput` module.
+Its logs are available with:
 
 ```bash
 journalctl -u yapdp-kiosk-guard.service
@@ -332,21 +339,15 @@ systemctl status yapdp-kiosk-guard.service
 
 The installer also applies defence-in-depth settings:
 
-- `NAutoVTs=0` and `ReserveVT=0` prevent logind from creating spare autovt
-  gettys automatically. The guard explicitly starts tty3 for service.
 - `kernel.sysrq = 0` disables Magic SysRq.
 - `ctrl-alt-del.target` is masked.
 - logind ignores power, reboot, suspend, and hibernate keys. A long hardware
   power-button hold remains a firmware-level power-off path.
+- `NAutoVTs=0` and `ReserveVT=0` prevent automatic spare gettys.
 
-The VT lock is system-wide. The guard is the local unlock path; no network or
-SSH connection is required. SSH may be enabled separately for remote
-administration, but is not required for recovery.
-
-This does not protect firmware setup, bootloader editing, removable-media boot,
-or physical disk access. Set a BIOS/UEFI administrator password, disable
-external boot where appropriate, and secure the chassis.
-
+This does not protect firmware setup, booting from external media, or physical
+disk access. Set a BIOS/UEFI administrator password, disable external boot
+where appropriate, and secure the chassis.
 
 ## GitHub Pages
 
