@@ -590,6 +590,7 @@ AUTH
 chown root:root "$GRUB_AUTH_SCRIPT"
 chmod 0755 "$GRUB_AUTH_SCRIPT"
 
+install -o root -g root -m 0755 "$KIOSK_DIR/scripts/grub/01_yapdp_disable_stock" /etc/grub.d/01_yapdp_disable_stock
 install -o root -g root -m 0755 "$KIOSK_DIR/scripts/grub/09_yapdp_kiosk" /etc/grub.d/09_yapdp_kiosk
 
 # Suppress Ubuntu's generic entries so the visitor/staff boot menu has exactly
