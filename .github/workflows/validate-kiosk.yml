@@ -20,6 +20,7 @@ jobs:
           bash -n deactivate-kiosk.sh
           bash -n legacy-deactivate-kiosk.sh
           bash -n install/ubuntu-24.04.sh
+          bash -n lib/installer-ui.sh
           bash -n start-kiosk.sh
           bash -n scripts/show-grub-password.sh
           sh -n scripts/grub/01_yapdp_disable_stock
