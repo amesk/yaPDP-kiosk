@@ -7,7 +7,8 @@ MESSAGE="STAFF ONLY — GRUB SERVICE PASSWORD
 
 $PASSWORD
 
-Use this password only for the GRUB entry:
+GRUB username: kiosk-admin
+Use this password for the GRUB entry:
 Enter service mode
 
 The normal kiosk boot does not require a password.
