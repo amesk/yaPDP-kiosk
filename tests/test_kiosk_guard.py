@@ -6,7 +6,9 @@ from types import SimpleNamespace
 SCRIPT = pathlib.Path(__file__).resolve().parents[1] / "scripts" / "kiosk-guard.py"
 sys.modules.setdefault("evdev", SimpleNamespace(
     InputDevice=object,
-    ecodes=SimpleNamespace(KEY_RIGHTCTRL=97, KEY_RIGHTALT=100, KEY_RIGHTSHIFT=54,
+    ecodes=SimpleNamespace(KEY_A=30, KEY_ENTER=28, KEY_SPACE=57, KEY_ESC=1,
+                           KEY_LEFTCTRL=29, KEY_LEFTALT=56, KEY_LEFTSHIFT=42,
+                           KEY_RIGHTCTRL=97, KEY_RIGHTALT=100, KEY_RIGHTSHIFT=54,
                            EV_KEY=1, EV_SYN=0, SYN_REPORT=0),
     list_devices=lambda: [],
 ))
