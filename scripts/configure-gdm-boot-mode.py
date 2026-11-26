@@ -23,10 +23,10 @@ def update_daemon_section(path: Path, settings: dict[str, str]) -> None:
     section_start = None
     section_end = len(lines)
     for index, line in enumerate(lines):
-        if re.match(r"^\\s*\\[daemon\\]\\s*(?:#.*)?$", line, re.IGNORECASE):
+        if re.match(r"^\s*\[daemon\]\s*(?:#.*)?$", line, re.IGNORECASE):
             section_start = index
             for end in range(index + 1, len(lines)):
-                if re.match(r"^\\s*\\[[^]]+\\]", lines[end]):
+                if re.match(r"^\s*\[[^]]+\]", lines[end]):
                     section_end = end
                     break
             break
@@ -43,7 +43,7 @@ def update_daemon_section(path: Path, settings: dict[str, str]) -> None:
     for index, line in enumerate(lines):
         if section_start < index < section_end:
             match = re.match(
-                r"^\\s*#?\\s*(AutomaticLoginEnable|AutomaticLogin|TimedLoginEnable)\\s*=",
+                r"^\s*#?\s*(AutomaticLoginEnable|AutomaticLogin|TimedLoginEnable)\s*=",
                 line,
             )
             if match:
@@ -59,14 +59,14 @@ def update_daemon_section(path: Path, settings: dict[str, str]) -> None:
         (
             index
             for index, line in enumerate(updated)
-            if index > section_start and re.match(r"^\\s*\\[[^]]+\\]", line)
+            if index > section_start and re.match(r"^\s*\[[^]]+\]", line)
         ),
         len(updated),
     )
     updated[insert_at:insert_at] = [
         f"{key}={value}" for key, value in settings.items() if key not in seen
     ]
-    content = "\\n".join(updated) + "\\n"
+    content = "\n".join(updated) + "\n"
 
     fd, temporary = tempfile.mkstemp(prefix=f"{path.name}.", dir=path.parent)
     try:
