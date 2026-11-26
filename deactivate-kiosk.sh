@@ -19,7 +19,10 @@ systemctl stop nginx.service 2>/dev/null || true
 python3 "$RESTORE"
 systemctl daemon-reload
 sysctl --system >/dev/null 2>&1 || true
-if command -v update-grub >/dev/null 2>&1; then update-grub; fi
+GRUB_UPDATE_OK=1
+if command -v update-grub >/dev/null 2>&1; then
+  if ! update-grub; then GRUB_UPDATE_OK=0; fi
+fi
 # Restore the services' pre-install enable/active state.
 python3 - "$STATE/manifest.json" <<'PY'
 import json, subprocess, sys
@@ -38,4 +41,9 @@ PY
 echo
 echo "yaPDP kiosk deactivated. Original configuration has been restored."
 echo "No repositories, disk images, saved states, or user data were deleted."
+echo "The kiosk account and its home directory were retained; no user data was removed."
 echo "Review the GRUB menu and nginx status, then reboot manually when convenient."
+if [[ "$GRUB_UPDATE_OK" -ne 1 ]]; then
+  echo "WARNING: update-grub failed. The configuration files were restored, but inspect GRUB before rebooting." >&2
+  exit 1
+fi
