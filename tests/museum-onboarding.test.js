@@ -40,3 +40,30 @@ test("resolve rejects missing or malformed launch URLs", () => {
   assert.equal(onboarding.resolve(null), null);
   assert.equal(onboarding.resolve("http://[invalid"), null);
 });
+
+test("resolve keeps extra pdp11.html parameters and adds the onboarding skip flag", () => {
+  const result = onboarding.resolve(
+    "/yapdp/pdp11.html?idle-timeout=180&idle-redirect=%2F&fullscreen-button=off",
+    "http://127.0.0.1:8080/"
+  );
+  const url = new URL(result.url);
+  assert.equal(url.searchParams.get("fullscreen-button"), "off");
+  assert.equal(url.searchParams.get("idle-timeout"), "180");
+  assert.equal(url.searchParams.get("idle-redirect"), "/");
+  assert.equal(url.searchParams.get("onboarding"), "skip");
+  assert.equal(result.timeoutMs, 180000);
+  assert.equal(result.returnUrl, "http://127.0.0.1:8080/");
+});
+
+test("resolve keeps extra parameters when idle return is disabled", () => {
+  const result = onboarding.resolve(
+    "/yapdp/pdp11.html?fullscreen-button=off",
+    "http://localhost:8080/"
+  );
+  const url = new URL(result.url);
+  assert.equal(url.searchParams.get("fullscreen-button"), "off");
+  assert.equal(url.searchParams.get("idle-timeout"), null);
+  assert.equal(url.searchParams.get("onboarding"), "skip");
+  assert.equal(result.timeoutMs, 0);
+  assert.equal(result.returnUrl, "");
+});
