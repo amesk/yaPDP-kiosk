@@ -93,14 +93,17 @@ fi
 # bootstrap environment, so this installer can be used without the dialog UI.
 IDLE_TIMEOUT="${IDLE_TIMEOUT:-180}"
 IDLE_REDIRECT="${IDLE_REDIRECT:-/}"
+# Optional raw query fragment for pdp11.html, for example
+# "fullscreen-button=off". Empty means no extra parameters.
+PDP11_EXTRA_PARAMS="${PDP11_EXTRA_PARAMS:-}"
 if [[ ! "$IDLE_TIMEOUT" =~ ^[0-9]+$ ]] || (( IDLE_TIMEOUT > 2147483 )); then
   echo "IDLE_TIMEOUT must be an integer from 0 to 2147483 seconds (0 disables the hand-off)." >&2
   exit 1
 fi
 
-python3 - "$KIOSK_DIR/config.js" "$IDLE_TIMEOUT" "$IDLE_REDIRECT" <<'PY'
+python3 - "$KIOSK_DIR/config.js" "$IDLE_TIMEOUT" "$IDLE_REDIRECT" "${PDP11_EXTRA_PARAMS:-}" <<'PY'
 from pathlib import Path
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import parse_qsl, urlencode, urlsplit
 import json
 import re
 import sys
@@ -108,7 +111,32 @@ import sys
 path = Path(sys.argv[1])
 timeout = int(sys.argv[2])
 redirect = sys.argv[3].strip()
+raw_extra = sys.argv[4]
 
+# ---- extra validation (shared rules with instant-setup.sh) ----
+RESERVED_KEYS = {"idle-timeout", "idle-redirect", "onboarding"}
+ALLOWED_CHARS = re.compile(r"^[A-Za-z0-9._~%!$&'()*+,;=:@/?-]+$")
+
+extra = raw_extra.strip().lstrip("?&")
+if extra:
+    if len(extra) > 256:
+        raise SystemExit("PDP11_EXTRA_PARAMS must be at most 256 characters.")
+    if not ALLOWED_CHARS.match(extra):
+        raise SystemExit("PDP11_EXTRA_PARAMS may contain only URL query characters "
+                         "(letters, digits, and -._~%!$&'()*+,;=:@/?).")
+    if re.search(r"%(?![0-9A-Fa-f]{2})", extra):
+        raise SystemExit("PDP11_EXTRA_PARAMS contains an invalid percent-escape.")
+    pairs = parse_qsl(extra, keep_blank_values=True)
+    if not pairs or any(not key for key, _ in pairs):
+        raise SystemExit("PDP11_EXTRA_PARAMS must be a list of name=value pairs.")
+    duplicates = RESERVED_KEYS.intersection(key for key, _ in pairs)
+    if duplicates:
+        raise SystemExit("PDP11_EXTRA_PARAMS must not redefine: " + ", ".join(sorted(duplicates)))
+
+# ---- launch URL assembly: idle params first, extra raw fragment last ----
+# The extra fragment is already written in query notation and passed the
+# whitelist, so it is appended as-is (no urlencode, i.e. no double escaping).
+encoded_parts = []
 if timeout > 0:
     if not redirect or any(ord(char) < 32 for char in redirect):
         raise SystemExit("IDLE_REDIRECT must be a non-empty URL without control characters.")
@@ -117,10 +145,13 @@ if timeout > 0:
         raise SystemExit("IDLE_REDIRECT must use HTTP(S), or be a relative URL.")
     if parsed.scheme.lower() in ("http", "https") and not parsed.netloc:
         raise SystemExit("IDLE_REDIRECT is missing a host.")
-    query = urlencode((("idle-timeout", str(timeout)), ("idle-redirect", redirect)))
-    launch_url = "/yapdp/pdp11.html?" + query
-else:
-    launch_url = "/yapdp/pdp11.html"
+    encoded_parts.append(urlencode((("idle-timeout", str(timeout)), ("idle-redirect", redirect))))
+if extra:
+    encoded_parts.append(extra)
+
+launch_url = "/yapdp/pdp11.html"
+if encoded_parts:
+    launch_url += "?" + "&".join(encoded_parts)
 
 content = path.read_text(encoding="utf-8")
 pattern = re.compile(r"(?m)^([ \t]*launchUrl[ \t]*:[ \t]*).*(,[ \t]*)$")

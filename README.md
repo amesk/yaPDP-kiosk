@@ -25,10 +25,12 @@ please, download `instant-setup.sh` locally and check it first.
 
 The first-run wizard uses `dialog` to collect the two Git repository URLs, a Git
 ref (branch, tag, or commit SHA) for each repository, the visitor inactivity
-timeout, and the URL to return to when the timeout expires. It also asks whether
-to install the optional yaPDP Plymouth boot splash; the default is **No**. The
-defaults point to the official yaPDP repositories, use a three-minute timeout,
-and return to the kiosk welcome page. The wizard installs the small `dialog`
+timeout, the URL to return to when the timeout expires, and an optional raw
+query fragment of extra `pdp11.html` parameters (for example
+`fullscreen-button=off`). It also asks whether to install the optional yaPDP
+Plymouth boot splash; the default is **No**. The defaults point to the official
+yaPDP repositories, use a three-minute timeout, return to the kiosk welcome
+page, and add no extra parameters. The wizard installs the small `dialog`
 package if it is not already present.
 
 The same settings can be supplied through environment variables. This also
@@ -40,16 +42,27 @@ sudo env NONINTERACTIVE=1 \
   KIOSK_REPO_URL=https://github.com/amesk/yaPDP-kiosk.git \
   IDLE_TIMEOUT=180 \
   IDLE_REDIRECT=/ \
+  PDP11_EXTRA_PARAMS='fullscreen-button=off' \
   INSTALL_PLYMOUTH=0 \
   bash ./instant-setup.sh
 ```
 
 Supported variables are `YAPDP_REPO_URL`, `KIOSK_REPO_URL`, `IDLE_TIMEOUT`
 (seconds; `0` disables automatic return), `IDLE_REDIRECT` (HTTP(S) URL or
-relative URL), `INSTALL_PLYMOUTH` (`0` by default; set to `1` to install the
-optional boot splash), `KIOSK_USER`, `YAPDP_REF`, and `KIOSK_REF`. The two refs
-default to known-good commit SHAs for reproducible museum deployments; choose a
-branch, tag, or commit SHA when deploying a fork or another revision.
+relative URL), `PDP11_EXTRA_PARAMS` (optional raw query fragment for
+`pdp11.html`, written as `name=value&name2=value2`), `INSTALL_PLYMOUTH` (`0` by
+default; set to `1` to install the optional boot splash), `KIOSK_USER`,
+`YAPDP_REF`, and `KIOSK_REF`. The two refs default to known-good commit SHAs for
+reproducible museum deployments; choose a branch, tag, or commit SHA when
+deploying a fork or another revision.
+
+`PDP11_EXTRA_PARAMS` may be at most 256 characters, may contain only URL query
+characters, and is taken literally: a single leading `?` or `&` is stripped, and
+the remaining fragment is appended to `launchUrl` unchanged. The keys
+`idle-timeout`, `idle-redirect`, and `onboarding` are reserved and rejected.
+Quote the value in single quotes so the shell does not interpret `&`. Do not put
+credentials or other secrets into this field: it is written to the tracked
+`config.js`.
 Interactive values are prefilled from the environment/defaults. When running
 interactively, environment values are shown as the dialog defaults and can be
 edited. Set `NONINTERACTIVE=1` to skip all prompts.
@@ -201,17 +214,33 @@ deliberately refuses to overwrite an existing installation.
 Edit `config.js` to change the presentation text, the default language, the
 launch URL, slideshow timing, and the media playlist.
 
-The installer generates `config.js`'s `launchUrl` from `IDLE_TIMEOUT` and
-`IDLE_REDIRECT`. When a visitor presses the attract screen's Start button, the
-kiosk first shows its own bilingual museum onboarding dialog. It explains the
-yaPDP magic-wand menu and the choice between a prepared scenario and booting an
-operating system directly. The dialog countdown uses the same timeout and return
-URL; continuing opens yaPDP with `onboarding=skip`, so the emulator's own
-first-run hint does not duplicate the museum instructions. The default is a
-three-minute timeout and a return to the kiosk welcome page. The redirect may be
-a relative URL (for example `/` or `/attract.html`) or an absolute HTTP(S) URL
-on another site. Set `IDLE_TIMEOUT=0` to disable the automatic hand-off; in that
-case yaPDP opens without idle parameters.
+The installer generates `config.js`'s `launchUrl` from `IDLE_TIMEOUT`,
+`IDLE_REDIRECT`, and `PDP11_EXTRA_PARAMS`. When a visitor presses the attract
+screen's Start button, the kiosk first shows its own bilingual museum onboarding
+dialog. It explains the yaPDP magic-wand menu and the choice between a prepared
+scenario and booting an operating system directly. The dialog countdown uses the
+same timeout and return URL; continuing opens yaPDP with `onboarding=skip`, so
+the emulator's own first-run hint does not duplicate the museum instructions.
+The default is a three-minute timeout and a return to the kiosk welcome page.
+The redirect may be a relative URL (for example `/` or `/attract.html`) or an
+absolute HTTP(S) URL on another site. Set `IDLE_TIMEOUT=0` to disable the
+automatic hand-off; yaPDP then opens without idle parameters, but any extra
+parameters are still applied.
+
+The resulting `launchUrl` follows this matrix:
+
+| `IDLE_TIMEOUT` | `PDP11_EXTRA_PARAMS` | `launchUrl` in `config.js` |
+| --- | --- | --- |
+| `180` | *(empty)* | `/yapdp/pdp11.html?idle-timeout=180&idle-redirect=%2F` |
+| `180` | `fullscreen-button=off` | `/yapdp/pdp11.html?idle-timeout=180&idle-redirect=%2F&fullscreen-button=off` |
+| `0` | *(empty)* | `/yapdp/pdp11.html` |
+| `0` | `fullscreen-button=off` | `/yapdp/pdp11.html?fullscreen-button=off` |
+
+The extra fragment is appended exactly as written, after the URL-encoded idle
+parameters, so it is never double-encoded. The museum onboarding dialog adds
+`onboarding=skip` and keeps every other query parameter intact (see
+[`js/onboarding.js`](js/onboarding.js:4)), so extra `pdp11.html` parameters
+survive the hand-off to yaPDP.
 
 The installer updates only the `launchUrl` setting and preserves the rest of the
 presentation configuration. The deployed yaPDP revision must include the
@@ -280,8 +309,13 @@ sudo git -C /opt/yapdp-exhibit/yaPDP-kiosk pull --ff-only
 Then restart Chrome (or reboot the machine) to load the new files. Notes:
 
 - No installer re-run is required for presentation changes: nginx already serves
-  the repository directory, and `install/ubuntu-24.04.sh` was not modified by
-  this change.
+  the repository directory, and `config.js`'s `launchUrl` is rewritten only when
+  the installer runs.
+- `activate-kiosk.sh` runs `install/ubuntu-24.04.sh` without any environment
+  overrides, so activation resets `launchUrl` to the defaults and drops custom
+  `IDLE_TIMEOUT`, `IDLE_REDIRECT`, and `PDP11_EXTRA_PARAMS`. Re-apply them
+  explicitly when needed, for example
+  `sudo env IDLE_TIMEOUT=0 PDP11_EXTRA_PARAMS='fullscreen-button=off' bash ./install/ubuntu-24.04.sh`.
 - `css/kiosk.css`, `js/i18n.js`, and `js/app.js` are requested with a `?v=`
   suffix. Bump that suffix in `index.html` whenever one of those files changes,
   otherwise the kiosk browser may keep using the cached copy.

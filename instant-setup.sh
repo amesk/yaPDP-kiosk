@@ -43,6 +43,9 @@ readonly INSTALL_ROOT="/opt/yapdp-exhibit"
 KIOSK_USER="${KIOSK_USER:-yapdp-kiosk}"
 IDLE_TIMEOUT="${IDLE_TIMEOUT:-180}"
 IDLE_REDIRECT="${IDLE_REDIRECT:-/}"
+# Optional raw query fragment appended to the pdp11.html launch URL, for
+# example "fullscreen-button=off"; empty means no extra parameters.
+PDP11_EXTRA_PARAMS="${PDP11_EXTRA_PARAMS:-}"
 INSTALL_PLYMOUTH="${INSTALL_PLYMOUTH:-0}"
 
 # Escalate before any privileged phase: every step below expects root, so a
@@ -65,7 +68,8 @@ if [[ "$EUID" -ne 0 ]]; then
   # sudo resets the environment, so forward only the documented overrides.
   escalate_env=(YAPDP_BOOTSTRAP_ESCALATED=1)
   for escalate_var in YAPDP_REPO_URL KIOSK_REPO_URL YAPDP_REF KIOSK_REF \
-                      KIOSK_USER IDLE_TIMEOUT IDLE_REDIRECT INSTALL_PLYMOUTH NONINTERACTIVE; do
+                      KIOSK_USER IDLE_TIMEOUT IDLE_REDIRECT PDP11_EXTRA_PARAMS \
+                      INSTALL_PLYMOUTH NONINTERACTIVE; do
     if [[ -n "${!escalate_var:-}" ]]; then
       escalate_env+=("$escalate_var=${!escalate_var}")
     fi
@@ -353,18 +357,25 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]]; then
     local values status
     if values="$(yapdp_dialog --stdout --title "Setup Wizard — 2/3: Visitor experience" \
       --extra-button --extra-label "Back" \
-      --form "Configure when the exhibit returns to its presentation screen." \
-      14 82 5 \
-      "Idle timeout (seconds; 0 disables):" 1 1 "$IDLE_TIMEOUT" 1 38 12 10 \
-      "Return URL:"                       3 1 "$IDLE_REDIRECT" 3 38 40 512 \
+      --form "Configure when the exhibit returns to its presentation screen.\nOptional extra pdp11.html query parameters, for example fullscreen-button=off." \
+      16 82 7 \
+      "Idle timeout (seconds; 0 disables):" 1 1 "$IDLE_TIMEOUT"       1 38 12 10 \
+      "Return URL:"                          3 1 "$IDLE_REDIRECT"      3 38 40 512 \
+      "Extra pdp11.html params:"             5 1 "$PDP11_EXTRA_PARAMS" 5 38 40 256 \
       </dev/tty 2>/dev/tty)"; then
       mapfile -t fields <<< "$values"
-      if (( ${#fields[@]} != 2 )); then
+      # Command substitution strips trailing newlines, so an empty last field
+      # disappears; restore the expected field count before validating it.
+      while (( ${#fields[@]} < 3 )); do
+        fields+=("")
+      done
+      if (( ${#fields[@]} != 3 )); then
         echo "Could not read visitor-experience settings from the wizard." >&2
         return 2
       fi
       IDLE_TIMEOUT="${fields[0]}"
       IDLE_REDIRECT="${fields[1]}"
+      PDP11_EXTRA_PARAMS="${fields[2]:-}"
       return 0
     else
       status=$?
@@ -411,7 +422,7 @@ if [[ "${NONINTERACTIVE:-0}" != "1" && -r /dev/tty && -w /dev/tty ]]; then
           if edit_boot_appearance; then :; else status=$?; (( status == 1 )) || exit 1; fi
           ;;
         review)
-          review_text="yaPDP repository:\n$YAPDP_REPO_URL\nREF: $YAPDP_REF\n\nyaPDP-kiosk repository:\n$KIOSK_REPO_URL\nREF: $KIOSK_REF\n\nInactivity timeout: $IDLE_TIMEOUT seconds\nReturn URL: $IDLE_REDIRECT\nPlymouth boot splash: $([[ "$INSTALL_PLYMOUTH" == "1" ]] && echo "Yes" || echo "No")\n\nStart installation with these settings?"
+          review_text="yaPDP repository:\n$YAPDP_REPO_URL\nREF: $YAPDP_REF\n\nyaPDP-kiosk repository:\n$KIOSK_REPO_URL\nREF: $KIOSK_REF\n\nInactivity timeout: $IDLE_TIMEOUT seconds\nReturn URL: $IDLE_REDIRECT\nExtra pdp11.html params: ${PDP11_EXTRA_PARAMS:-(none)}\nPlymouth boot splash: $([[ "$INSTALL_PLYMOUTH" == "1" ]] && echo "Yes" || echo "No")\n\nStart installation with these settings?"
           if yapdp_dialog --title "Setup Wizard — Review" --yesno "$review_text" 22 82 </dev/tty >/dev/tty 2>&1; then
             break
           else
@@ -448,22 +459,46 @@ if [[ ! "$IDLE_TIMEOUT" =~ ^[0-9]+$ ]] || (( IDLE_TIMEOUT > 2147483 )); then
   echo "IDLE_TIMEOUT must be an integer from 0 to 2147483 seconds." >&2
   exit 1
 fi
-python3 - "$IDLE_TIMEOUT" "$IDLE_REDIRECT" <<'PY'
-from urllib.parse import urlsplit
+# Validate the optional extra parameters even when the idle hand-off is
+# disabled, and write the sanitized fragment back into the environment.
+PDP11_EXTRA_PARAMS="$(python3 - "$IDLE_TIMEOUT" "$IDLE_REDIRECT" "${PDP11_EXTRA_PARAMS:-}" <<'PY'
+from urllib.parse import parse_qsl, urlsplit
+import re
 import sys
 
 timeout = int(sys.argv[1])
 redirect = sys.argv[2].strip()
-if timeout == 0:
-    raise SystemExit(0)
-if not redirect or any(ord(char) < 32 for char in redirect):
-    raise SystemExit("IDLE_REDIRECT must be a non-empty URL without control characters.")
-parsed = urlsplit(redirect)
-if parsed.scheme and parsed.scheme.lower() not in ("http", "https"):
-    raise SystemExit("IDLE_REDIRECT must use HTTP(S), or be a relative URL.")
-if parsed.scheme.lower() in ("http", "https") and not parsed.netloc:
-    raise SystemExit("IDLE_REDIRECT is missing a host.")
+extra = sys.argv[3].strip().lstrip("?&")
+
+RESERVED_KEYS = {"idle-timeout", "idle-redirect", "onboarding"}
+ALLOWED_CHARS = re.compile(r"^[A-Za-z0-9._~%!$&'()*+,;=:@/?-]+$")
+if extra:
+    if len(extra) > 256:
+        raise SystemExit("PDP11_EXTRA_PARAMS must be at most 256 characters.")
+    if not ALLOWED_CHARS.match(extra):
+        raise SystemExit("PDP11_EXTRA_PARAMS may contain only URL query characters "
+                         "(letters, digits, and -._~%!$&'()*+,;=:@/?).")
+    if re.search(r"%(?![0-9A-Fa-f]{2})", extra):
+        raise SystemExit("PDP11_EXTRA_PARAMS contains an invalid percent-escape.")
+    pairs = parse_qsl(extra, keep_blank_values=True)
+    if not pairs or any(not key for key, _ in pairs):
+        raise SystemExit("PDP11_EXTRA_PARAMS must be a list of name=value pairs.")
+    duplicates = RESERVED_KEYS.intersection(key for key, _ in pairs)
+    if duplicates:
+        raise SystemExit("PDP11_EXTRA_PARAMS must not redefine: " + ", ".join(sorted(duplicates)))
+
+if timeout > 0:
+    if not redirect or any(ord(char) < 32 for char in redirect):
+        raise SystemExit("IDLE_REDIRECT must be a non-empty URL without control characters.")
+    parsed = urlsplit(redirect)
+    if parsed.scheme and parsed.scheme.lower() not in ("http", "https"):
+        raise SystemExit("IDLE_REDIRECT must use HTTP(S), or be a relative URL.")
+    if parsed.scheme.lower() in ("http", "https") and not parsed.netloc:
+        raise SystemExit("IDLE_REDIRECT is missing a host.")
+
+print(extra)
 PY
+)"
 
 STAGE_DIR="$(mktemp -d /opt/.yapdp-exhibit.XXXXXX)"
 
@@ -619,6 +654,7 @@ show_phase 55 "Installing GNOME Kiosk, nginx and automatic login..."
 echo "Starting the Ubuntu 24.04 kiosk installer..."
 YAPDP_PROGRESS_BASE=55 YAPDP_PROGRESS_SPAN=40 \
   KIOSK_USER="$KIOSK_USER" IDLE_TIMEOUT="$IDLE_TIMEOUT" IDLE_REDIRECT="$IDLE_REDIRECT" \
+  PDP11_EXTRA_PARAMS="$PDP11_EXTRA_PARAMS" \
   bash "$INSTALL_ROOT/yaPDP-kiosk/install/ubuntu-24.04.sh"
 
 if [[ "$INSTALL_PLYMOUTH" == "1" ]]; then

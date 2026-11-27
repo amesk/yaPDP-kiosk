@@ -8,6 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- `PDP11_EXTRA_PARAMS` environment variable and a third field in the visitor-experience wizard step for optional raw query parameters of `pdp11.html` (for example `fullscreen-button=off`); the fragment is appended to `launchUrl` after the URL-encoded `idle-timeout`/`idle-redirect` parameters without double encoding.
 - Bilingual kiosk shell: Russian is the default language and an `RU | EN` switch in the top-right corner changes the wording of the welcome screen and slide captions without reloading the page.
 - `locale`, `fallbackLocale`, `locales`, and `media[].captions` configuration keys. String resolution falls back to the wording in `index.html`, so a partially translated deployment never renders empty labels.
 - `js/i18n.js`: DOM-free localization resolver (locale detection, fallback chain, caption lookup), covered by `tests/i18n.test.js` and runnable with `node --test tests`.
@@ -24,9 +25,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Slide captions moved above the footer row, so the progress bar no longer runs beneath the caption text and captions stay readable.
 - The launch-button arrow is an inline SVG instead of the `→` glyph, so it stays vertically centred regardless of which font the kiosk browser selects for the label.
 - Chrome's built-in translation prompt is disabled: the launcher passes `--disable-features=Translate,TranslateUI`, and the page declares `translate="no"` plus `notranslate`. A Russian exhibit page must never invite a visitor to translate the kiosk itself.
-- `instant-setup.sh` acquires root by itself instead of refusing to start: as a regular user it re-runs the same file through `sudo`, and when it was piped into `bash` it downloads itself to a temporary file as root. The URL comes from `YAPDP_BOOTSTRAP_URL` or is derived from `KIOSK_REPO_URL` and `KIOSK_REF`, and the `YAPDP_*`, `KIOSK_*`, `IDLE_*`, `INSTALL_PLYMOUTH`, `NONINTERACTIVE` overrides survive the escalation.
+- `instant-setup.sh` acquires root by itself instead of refusing to start: as a regular user it re-runs the same file through `sudo`, and when it was piped into `bash` it downloads itself to a temporary file as root. The URL comes from `YAPDP_BOOTSTRAP_URL` or is derived from `KIOSK_REPO_URL` and `KIOSK_REF`, and the `YAPDP_*`, `KIOSK_*`, `IDLE_*`, `PDP11_EXTRA_PARAMS`, `INSTALL_PLYMOUTH`, `NONINTERACTIVE` overrides survive the escalation.
+- `instant-setup.sh` and `install/ubuntu-24.04.sh` validate `PDP11_EXTRA_PARAMS`: URL query characters only, well-formed `%XX` escapes, at most 256 characters, and the reserved keys `idle-timeout`, `idle-redirect`, and `onboarding` rejected. A `?` is now added even when `IDLE_TIMEOUT=0`, as long as extra parameters are set.
 
 ### Compatibility
 
-- `install/ubuntu-24.04.sh` is unchanged: `launchUrl` remains a single top-level line in `config.js` and the installer still rewrites it from `IDLE_TIMEOUT` and `IDLE_REDIRECT`.
+- `install/ubuntu-24.04.sh` now also appends `PDP11_EXTRA_PARAMS` to `launchUrl`, which remains a single top-level line in `config.js`. When `PDP11_EXTRA_PARAMS` is unset or empty, the rewritten value is byte-for-byte the previous one built from `IDLE_TIMEOUT` and `IDLE_REDIRECT`.
 - A configuration without `locales` keeps working; the shell then renders the Russian wording shipped in `index.html` and hides the language switch.
