@@ -15,6 +15,16 @@ const vm = require("node:vm");
 const ROOT = path.join(__dirname, "..");
 const read = (file) => fs.readFileSync(path.join(ROOT, file), "utf8");
 
+// Slide captions are museum content, not a stable API. Read the expected
+// wording from config.js so this smoke test proves the wiring (locale ->
+// resolveCaption -> caption node) instead of pinning placeholder copy.
+const CONFIG = (() => {
+  const sandbox = { window: {} };
+  vm.runInContext(read("config.js"), vm.createContext(sandbox), { filename: "config.js" });
+  return sandbox.window.KIOSK_CONFIG;
+})();
+const FIRST_SLIDE_CAPTIONS = CONFIG.media[0].captions;
+
 function createNode(id, kind, text) {
   const node = {
     id: id,
@@ -156,7 +166,8 @@ test("the shell starts in Russian even when the browser prefers English", () => 
 
 test("the first slide caption is localized", () => {
   const shell = boot();
-  assert.equal(shell.nodes.caption.textContent, "История компьютеров #1");
+  assert.ok(FIRST_SLIDE_CAPTIONS.ru, "config.js must define the first RU caption");
+  assert.equal(shell.nodes.caption.textContent, FIRST_SLIDE_CAPTIONS.ru);
 });
 
 test("the language switch swaps text without touching the slide", () => {
@@ -166,7 +177,7 @@ test("the language switch swaps text without touching the slide", () => {
   assert.equal(shell.document.documentElement.lang, "en");
   assert.equal(shell.nodes.buttonText.textContent, "Press me to launch!");
   assert.equal(shell.nodes.hint.textContent, "Touch the button to begin");
-  assert.equal(shell.nodes.caption.textContent, "A computer history story #1");
+  assert.equal(shell.nodes.caption.textContent, FIRST_SLIDE_CAPTIONS.en);
   assert.equal(shell.document.title, "yaPDP — interactive exhibit");
   assert.equal(shell.nodes.image.src, imageSrcBefore);
   assert.equal(shell.store.get("yapdp.kiosk.lang"), "en");
