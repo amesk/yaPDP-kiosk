@@ -1,8 +1,10 @@
 import importlib.util
 import json
+import os
 import pathlib
 import tempfile
 import unittest
+from unittest import mock
 
 SCRIPT = pathlib.Path(__file__).resolve().parents[1] / "scripts" / "configure-gdm-boot-mode.py"
 SPEC = importlib.util.spec_from_file_location("gdm_boot_mode", SCRIPT)
@@ -11,7 +13,19 @@ SPEC.loader.exec_module(MODULE)
 
 
 class GdmBootModeTests(unittest.TestCase):
+    """Cross-platform tests for the one-boot GDM configuration rewrite.
+
+    The atomic writer copies file ownership via ``os.geteuid``/``os.fchown``,
+    which only exist on POSIX. On Windows the missing call is stubbed so the
+    ownership branch is skipped exactly like it is for a non-root user, while
+    the section-rewriting logic under test still runs for real.
+    """
+
     def setUp(self):
+        if not hasattr(os, "geteuid"):
+            patcher = mock.patch.object(MODULE.os, "geteuid", lambda: 1, create=True)
+            patcher.start()
+            self.addCleanup(patcher.stop)
         self.temp = tempfile.TemporaryDirectory()
         self.root = pathlib.Path(self.temp.name)
         self.config = self.root / "boot-mode.json"
